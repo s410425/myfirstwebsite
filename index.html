@@ -64,7 +64,7 @@
             dx = grid; dy = 0;
             food = {x: Math.floor(Math.random() * 20) * grid, y: Math.floor(Math.random() * 20) * grid};
             if(gameInterval) clearInterval(gameInterval);
-            gameInterval = setInterval(gameLoop, 100);
+            gameInterval = setInterval(gameLoop, 200);
         }
 
         function gameLoop() {
