@@ -2,19 +2,23 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>遊戲選單範例</title>
+    <title>貪吃蛇遊戲</title>
     <style>
         body {
             font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 30px;
         }
         #menu {
-            display: none; /* 預設隱藏 */
+            display: block;
             margin-top: 20px;
             border: 2px solid #333;
             padding: 15px;
             width: 200px;
             background-color: #f9f9f9;
             border-radius: 8px;
+            margin-left: auto;
+            margin-right: auto;
         }
         #menu button {
             display: block;
@@ -24,31 +28,87 @@
             border-radius: 5px;
             cursor: pointer;
         }
-        #menu button:hover {
-            background-color: #ddd;
+        #gameCanvas {
+            display: none; /* 遊戲一開始隱藏 */
+            background-color: #000;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>遊戲選單範例</h1>
-    <button onclick="toggleMenu()">開啟遊戲選單</button>
+    <h1>貪吃蛇遊戲</h1>
 
     <div id="menu">
-        <button onclick="alert('開始新遊戲！')">開始遊戲</button>
-        <button onclick="alert('讀取存檔！')">讀取遊戲</button>
-        <button onclick="alert('設定畫面！')">遊戲設定</button>
-        <button onclick="alert('離開遊戲！')">離開遊戲</button>
+        <button onclick="startGame()">開始遊戲</button>
+        <button onclick="alert('遊戲設定功能暫未實作')">遊戲設定</button>
+        <button onclick="alert('離開遊戲')">離開遊戲</button>
     </div>
 
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+
     <script>
-        function toggleMenu() {
-            const menu = document.getElementById("menu");
-            if(menu.style.display === "none") {
-                menu.style.display = "block"; // 顯示選單
-            } else {
-                menu.style.display = "none"; // 隱藏選單
-            }
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const grid = 20; // 每格大小
+        let snake = [{x: 8 * grid, y: 8 * grid}]; // 初始位置
+        let food = {x: Math.floor(Math.random() * 20) * grid, y: Math.floor(Math.random() * 20) * grid};
+        let dx = grid; // 初始向右
+        let dy = 0;
+        let gameInterval;
+
+        function startGame() {
+            document.getElementById("menu").style.display = "none";
+            canvas.style.display = "block";
+            snake = [{x: 8 * grid, y: 8 * grid}];
+            dx = grid; dy = 0;
+            food = {x: Math.floor(Math.random() * 20) * grid, y: Math.floor(Math.random() * 20) * grid};
+            if(gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(gameLoop, 100);
         }
+
+        function gameLoop() {
+            // 移動蛇
+            const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+            
+            // 撞牆或撞自己遊戲結束
+            if(head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height || snake.some(seg => seg.x === head.x && seg.y === head.y)) {
+                clearInterval(gameInterval);
+                alert("遊戲結束！你的分數: " + (snake.length - 1));
+                canvas.style.display = "none";
+                document.getElementById("menu").style.display = "block";
+                return;
+            }
+
+            snake.unshift(head);
+
+            // 吃到食物
+            if(head.x === food.x && head.y === food.y) {
+                food = {x: Math.floor(Math.random() * 20) * grid, y: Math.floor(Math.random() * 20) * grid};
+            } else {
+                snake.pop(); // 沒吃到就移除尾巴
+            }
+
+            // 畫畫面
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 畫食物
+            ctx.fillStyle = "red";
+            ctx.fillRect(food.x, food.y, grid, grid);
+
+            // 畫蛇
+            ctx.fillStyle = "lime";
+            snake.forEach(seg => ctx.fillRect(seg.x, seg.y, grid, grid));
+        }
+
+        // 控制方向
+        document.addEventListener("keydown", function(e) {
+            if(e.key === "ArrowUp" && dy === 0) { dx = 0; dy = -grid; }
+            if(e.key === "ArrowDown" && dy === 0) { dx = 0; dy = grid; }
+            if(e.key === "ArrowLeft" && dx === 0) { dx = -grid; dy = 0; }
+            if(e.key === "ArrowRight" && dx === 0) { dx = grid; dy = 0; }
+        });
     </script>
 </body>
 </html>
