@@ -2,23 +2,22 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>貪吃蛇遊戲</title>
+    <title>單機 Snake.io</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
             text-align: center;
-            margin-top: 30px;
+            font-family: Arial, sans-serif;
+            background-color: #222;
+            color: #fff;
         }
         #menu {
-            display: block;
             margin-top: 20px;
-            border: 2px solid #333;
             padding: 15px;
-            width: 200px;
-            background-color: #f9f9f9;
-            border-radius: 8px;
+            width: 250px;
             margin-left: auto;
             margin-right: auto;
+            border-radius: 8px;
+            background-color: #444;
         }
         #menu button {
             display: block;
@@ -27,87 +26,152 @@
             padding: 8px;
             border-radius: 5px;
             cursor: pointer;
+            background-color: #666;
+            color: #fff;
+            border: none;
+            font-weight: bold;
+        }
+        #menu button:hover {
+            background-color: #888;
         }
         #gameCanvas {
-            display: none; /* 遊戲一開始隱藏 */
-            background-color: #000;
+            display: none;
             margin-top: 20px;
+            background-color: #111;
+            border: 2px solid #555;
+        }
+        #score {
+            margin-top: 10px;
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
-    <h1>貪吃蛇遊戲</h1>
+    <h1>單機 Snake.io</h1>
 
     <div id="menu">
         <button onclick="startGame()">開始遊戲</button>
-        <button onclick="alert('遊戲設定功能暫未實作')">遊戲設定</button>
+        <button onclick="alert('暫未實作設定')">遊戲設定</button>
         <button onclick="alert('離開遊戲')">離開遊戲</button>
     </div>
 
-    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <div id="score"></div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+        const grid = 20;
 
-        const grid = 20; // 每格大小
-        let snake = [{x: 8 * grid, y: 8 * grid}]; // 初始位置
-        let food = {x: Math.floor(Math.random() * 20) * grid, y: Math.floor(Math.random() * 20) * grid};
-        let dx = grid; // 初始向右
-        let dy = 0;
-        let gameInterval;
+        let playerSnake, aiSnakes, food, gameInterval;
+        let score = 0;
 
         function startGame() {
             document.getElementById("menu").style.display = "none";
             canvas.style.display = "block";
-            snake = [{x: 8 * grid, y: 8 * grid}];
-            dx = grid; dy = 0;
-            food = {x: Math.floor(Math.random() * 20) * grid, y: Math.floor(Math.random() * 20) * grid};
+            score = 0;
+            document.getElementById("score").innerText = "分數: " + score;
+
+            // 玩家蛇初始
+            playerSnake = [{x: 300, y: 200}];
+            playerSnake.dir = {x: grid, y: 0};
+
+            // AI 蛇初始
+            aiSnakes = [
+                {body: [{x: 100, y: 100}], dir: {x: grid, y: 0}, color: "orange"},
+                {body: [{x: 500, y: 300}], dir: {x: -grid, y: 0}, color: "cyan"}
+            ];
+
+            // 食物初始
+            food = randomFood();
+
             if(gameInterval) clearInterval(gameInterval);
-            gameInterval = setInterval(gameLoop, 200);
+            gameInterval = setInterval(gameLoop, 120); // 遊戲速度
+        }
+
+        function randomFood() {
+            return {
+                x: Math.floor(Math.random() * (canvas.width / grid)) * grid,
+                y: Math.floor(Math.random() * (canvas.height / grid)) * grid
+            };
+        }
+
+        function drawCircle(x, y, radius, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x + radius, y + radius, radius, 0, Math.PI * 2);
+            ctx.fill();
         }
 
         function gameLoop() {
-            // 移動蛇
-            const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 玩家蛇移動
+            const newHead = {x: playerSnake[0].x + playerSnake.dir.x, y: playerSnake[0].y + playerSnake.dir.y};
             
-            // 撞牆或撞自己遊戲結束
-            if(head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height || snake.some(seg => seg.x === head.x && seg.y === head.y)) {
+            // 撞牆或撞自己或撞AI蛇
+            if(newHead.x < 0 || newHead.x >= canvas.width || newHead.y < 0 || newHead.y >= canvas.height ||
+               playerSnake.some(seg => seg.x === newHead.x && seg.y === newHead.y) ||
+               aiSnakes.some(ai => ai.body.some(seg => seg.x === newHead.x && seg.y === newHead.y))) {
                 clearInterval(gameInterval);
-                alert("遊戲結束！你的分數: " + (snake.length - 1));
+                alert("遊戲結束！分數: " + score);
                 canvas.style.display = "none";
                 document.getElementById("menu").style.display = "block";
                 return;
             }
 
-            snake.unshift(head);
+            playerSnake.unshift(newHead);
 
-            // 吃到食物
-            if(head.x === food.x && head.y === food.y) {
-                food = {x: Math.floor(Math.random() * 20) * grid, y: Math.floor(Math.random() * 20) * grid};
+            // 吃食物
+            if(newHead.x === food.x && newHead.y === food.y) {
+                score += 1;
+                document.getElementById("score").innerText = "分數: " + score;
+                food = randomFood();
             } else {
-                snake.pop(); // 沒吃到就移除尾巴
+                playerSnake.pop();
             }
 
-            // 畫畫面
-            ctx.fillStyle = "#000";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
             // 畫食物
-            ctx.fillStyle = "red";
-            ctx.fillRect(food.x, food.y, grid, grid);
+            drawCircle(food.x, food.y, grid/2, "red");
 
-            // 畫蛇
-            ctx.fillStyle = "lime";
-            snake.forEach(seg => ctx.fillRect(seg.x, seg.y, grid, grid));
+            // 畫玩家蛇
+            playerSnake.forEach(seg => drawCircle(seg.x, seg.y, grid/2, "lime"));
+
+            // AI 蛇邏輯
+            aiSnakes.forEach(ai => {
+                // 簡單AI：朝食物方向移動
+                const head = ai.body[0];
+                const dx = food.x - head.x;
+                const dy = food.y - head.y;
+                ai.dir.x = dx !== 0 ? grid * Math.sign(dx) : 0;
+                ai.dir.y = dx === 0 ? grid * Math.sign(dy) : 0;
+
+                const newAIHead = {x: head.x + ai.dir.x, y: head.y + ai.dir.y};
+
+                // 撞牆或撞自己簡單處理
+                if(newAIHead.x < 0 || newAIHead.x >= canvas.width) ai.dir.x *= -1;
+                if(newAIHead.y < 0 || newAIHead.y >= canvas.height) ai.dir.y *= -1;
+
+                ai.body.unshift({x: head.x + ai.dir.x, y: head.y + ai.dir.y});
+
+                // 吃食物
+                if(ai.body[0].x === food.x && ai.body[0].y === food.y) {
+                    food = randomFood();
+                } else {
+                    ai.body.pop();
+                }
+
+                // 畫AI蛇
+                ai.body.forEach(seg => drawCircle(seg.x, seg.y, grid/2, ai.color));
+            });
         }
 
-        // 控制方向
-        document.addEventListener("keydown", function(e) {
-            if(e.key === "ArrowUp" && dy === 0) { dx = 0; dy = -grid; }
-            if(e.key === "ArrowDown" && dy === 0) { dx = 0; dy = grid; }
-            if(e.key === "ArrowLeft" && dx === 0) { dx = -grid; dy = 0; }
-            if(e.key === "ArrowRight" && dx === 0) { dx = grid; dy = 0; }
+        // 玩家控制
+        document.addEventListener("keydown", e => {
+            if(e.key === "ArrowUp" && playerSnake.dir.y === 0) { playerSnake.dir.x = 0; playerSnake.dir.y = -grid; }
+            if(e.key === "ArrowDown" && playerSnake.dir.y === 0) { playerSnake.dir.x = 0; playerSnake.dir.y = grid; }
+            if(e.key === "ArrowLeft" && playerSnake.dir.x === 0) { playerSnake.dir.x = -grid; playerSnake.dir.y = 0; }
+            if(e.key === "ArrowRight" && playerSnake.dir.x === 0) { playerSnake.dir.x = grid; playerSnake.dir.y = 0; }
         });
     </script>
 </body>
