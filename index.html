@@ -2,45 +2,55 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>我的酷網站</title>
+    <title>簡易對話框範例</title>
     <style>
-        body {
-            background: linear-gradient(to right, #74ebd5, #ACB6E5);
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 0;
+        #chat-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            width: 400px;
+            height: 200px;
+            overflow-y: auto; /* 超出高度時可以滾動 */
+            white-space: pre-line; /* 保留換行 */
+            margin-bottom: 10px;
         }
-        h1 {
-            color: #fff;
-            margin-top: 100px;
-            font-size: 50px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-        p {
-            color: #fff;
-            font-size: 20px;
+        input[type="text"] {
+            width: 300px;
+            padding: 5px;
         }
         button {
-            margin-top: 30px;
-            padding: 15px 30px;
-            font-size: 18px;
-            background-color: #ff7f50;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            color: #fff;
-            transition: all 0.3s;
-        }
-        button:hover {
-            background-color: #ff6347;
-            transform: scale(1.1);
+            padding: 5px 10px;
         }
     </style>
 </head>
 <body>
-    <h1>歡迎來到我的網站!</h1>
-    <p>這是一個有顏色背景和按鈕的範例網站</p>
-    <button onclick="alert('你好！你點到按鈕啦 😎')">點我一下</button>
+    <h1>簡易對話框範例</h1>
+
+    <div id="chat-box">
+        <!-- 對話內容會出現在這裡 -->
+    </div>
+
+    <input type="text" id="user-input" placeholder="輸入你的訊息">
+    <button onclick="sendMessage()">送出</button>
+
+    <script>
+        function sendMessage() {
+            const input = document.getElementById("user-input");
+            const chatBox = document.getElementById("chat-box");
+            const message = input.value.trim();
+
+            if(message !== "") {
+                chatBox.innerHTML += "你說: " + message + "\n"; // 新增訊息
+                input.value = ""; // 清空輸入框
+                chatBox.scrollTop = chatBox.scrollHeight; // 自動滾動到最底
+            }
+        }
+
+        // 按 Enter 也可以送出訊息
+        document.getElementById("user-input").addEventListener("keypress", function(e) {
+            if(e.key === "Enter") {
+                sendMessage();
+            }
+        });
+    </script>
 </body>
 </html>
