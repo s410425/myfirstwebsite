@@ -2,55 +2,53 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>簡易對話框範例</title>
+    <title>遊戲選單範例</title>
     <style>
-        #chat-box {
-            border: 1px solid #ccc;
-            padding: 10px;
-            width: 400px;
-            height: 200px;
-            overflow-y: auto; /* 超出高度時可以滾動 */
-            white-space: pre-line; /* 保留換行 */
-            margin-bottom: 10px;
+        body {
+            font-family: Arial, sans-serif;
         }
-        input[type="text"] {
-            width: 300px;
-            padding: 5px;
+        #menu {
+            display: none; /* 預設隱藏 */
+            margin-top: 20px;
+            border: 2px solid #333;
+            padding: 15px;
+            width: 200px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
         }
-        button {
-            padding: 5px 10px;
+        #menu button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #menu button:hover {
+            background-color: #ddd;
         }
     </style>
 </head>
 <body>
-    <h1>簡易對話框範例</h1>
+    <h1>遊戲選單範例</h1>
+    <button onclick="toggleMenu()">開啟遊戲選單</button>
 
-    <div id="chat-box">
-        <!-- 對話內容會出現在這裡 -->
+    <div id="menu">
+        <button onclick="alert('開始新遊戲！')">開始遊戲</button>
+        <button onclick="alert('讀取存檔！')">讀取遊戲</button>
+        <button onclick="alert('設定畫面！')">遊戲設定</button>
+        <button onclick="alert('離開遊戲！')">離開遊戲</button>
     </div>
 
-    <input type="text" id="user-input" placeholder="輸入你的訊息">
-    <button onclick="sendMessage()">送出</button>
-
     <script>
-        function sendMessage() {
-            const input = document.getElementById("user-input");
-            const chatBox = document.getElementById("chat-box");
-            const message = input.value.trim();
-
-            if(message !== "") {
-                chatBox.innerHTML += "你說: " + message + "\n"; // 新增訊息
-                input.value = ""; // 清空輸入框
-                chatBox.scrollTop = chatBox.scrollHeight; // 自動滾動到最底
+        function toggleMenu() {
+            const menu = document.getElementById("menu");
+            if(menu.style.display === "none") {
+                menu.style.display = "block"; // 顯示選單
+            } else {
+                menu.style.display = "none"; // 隱藏選單
             }
         }
-
-        // 按 Enter 也可以送出訊息
-        document.getElementById("user-input").addEventListener("keypress", function(e) {
-            if(e.key === "Enter") {
-                sendMessage();
-            }
-        });
     </script>
 </body>
 </html>
