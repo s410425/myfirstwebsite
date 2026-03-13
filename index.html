@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 磁力精準版 (Cap 750)</title>
+<title>Snake.io 磁力流暢版 (Cap 750)</title>
 <style>
     body{margin:0;overflow:hidden;background:#050505;font-family:sans-serif;user-select:none}
     canvas{display:block}
@@ -16,10 +16,10 @@
 <body>
 
 <div id="menu">
-    <h1 style="color:#0f4">SNAKE MAGNET: 750</h1>
-    <p style="color:#888">【玩家專屬】磁力：10x 長度 (上限 750)</p>
-    <p style="color:#888">精準進食判定 | 寬度上限 100px | 長度無限</p>
-    <button onclick="start()">啟動遊戲</button>
+    <h1 style="color:#0f4">SNAKE MAGNET: SMOOTH</h1>
+    <p style="color:#888">【磁力上限 750】食物平滑吸引動畫</p>
+    <p style="color:#888">視覺寬度上限 100px | 長度無限成長</p>
+    <button onclick="start()">開始戰鬥</button>
 </div>
 
 <div id="score-ui">SCORE: 150</div>
@@ -30,7 +30,7 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const MAP = 5000;
-const FOOD_MAX = 650;
+const FOOD_MAX = 700;
 const AI_COUNT = 25;
 
 let started = false;
@@ -54,8 +54,7 @@ class Snake {
     }
 
     getWidth() {
-        let baseWidth = 15 + Math.sqrt(this.length) * 0.7;
-        return Math.min(100, baseWidth);
+        return Math.min(100, 15 + Math.sqrt(this.length) * 0.7);
     }
 
     update() {
@@ -86,12 +85,10 @@ class Snake {
         ctx.lineWidth = thickness;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
-        
         if (this.isPlayer) {
             ctx.shadowBlur = 15 * camera.zoom;
             ctx.shadowColor = "#0f4";
         }
-        
         ctx.beginPath();
         ctx.moveTo(toSX(this.body[0].x), toSY(this.body[0].y));
         for(let p of this.body) ctx.lineTo(toSX(p.x), toSY(p.y));
@@ -135,7 +132,7 @@ function loop() {
     camera.zoom += (targetZoom - camera.zoom) * 0.04;
     camera.x = player.body[0].x; camera.y = player.body[0].y;
 
-    // --- 【磁力校準：10x 且上限 750】 ---
+    // --- 【動畫感磁力判定】 ---
     let magnetRange = Math.min(750, 10 * player.length);
 
     for (let i = foods.length - 1; i >= 0; i--) {
@@ -144,14 +141,19 @@ function loop() {
         let distSq = dx*dx + dy*dy;
         
         if (distSq < magnetRange * magnetRange) {
-            f.x += dx * 0.45; f.y += dy * 0.45;
-            if (distSq < 1000) {
+            // 讓食物滑向頭部的動畫感 (Lerp)
+            // 使用 0.15 的係數讓它有流動感，而非瞬間吸入
+            f.x += dx * 0.15; f.y += dy * 0.15;
+            
+            // 真正的進食判定（縮得很小，確保視覺上食物是進到嘴巴才消失）
+            if (distSq < (player.getWidth() * player.getWidth() * 0.5)) {
                 player.length += f.val + (player.length * 0.02);
                 foods.splice(i, 1);
                 spawnFood();
             }
         }
         
+        // AI 正常進食
         ai.forEach(s => {
             let adx = s.body[0].x - f.x, ady = s.body[0].y - f.y;
             if (adx*adx + ady*ady < 600) {
@@ -161,6 +163,17 @@ function loop() {
         });
     }
 
+    // 繪製食物
+    const toSX = x => (x - camera.x) * camera.zoom + canvas.width/2;
+    const toSY = y => (y - camera.y) * camera.zoom + canvas.height/2;
+    foods.forEach(f => {
+        ctx.fillStyle = f.color;
+        ctx.beginPath();
+        ctx.arc(toSX(f.x), toSY(f.y), f.size * camera.zoom, 0, 7);
+        ctx.fill();
+    });
+
+    // 更新玩家與 AI
     player.angle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
     player.update();
     if (Math.abs(player.body[0].x) > MAP || Math.abs(player.body[0].y) > MAP) player.dead = true;
@@ -186,14 +199,7 @@ function loop() {
         if (s.dead) toDie.push(s);
     });
 
-    ai.forEach(other => {
-        let minDist = (player.getWidth() + other.getWidth()) * 0.45;
-        for (let j = 0; j < other.body.length; j += 4) {
-            let dx = player.body[0].x - other.body[j].x, dy = player.body[0].y - other.body[j].y;
-            if (dx*dx + dy*dy < minDist * minDist) player.dead = true;
-        }
-    });
-
+    // 死亡結算
     if (player.dead) { player = new Snake(0, 0, "#0f4", true); }
     toDie.forEach(s => {
         let count = Math.min(60, Math.floor(s.length/30));
@@ -206,9 +212,6 @@ function loop() {
     player.draw();
 
     document.getElementById("score-ui").innerText = `LENGTH: ${Math.floor(player.length)}`;
-    let ranking = [player, ...ai].sort((a,b)=>b.length - a.length).slice(0, 5);
-    document.getElementById("ui-layer").innerHTML = "<b>LEADERBOARD</b><br><hr>" + ranking.map((s,i)=>`${i+1}. ${s.isPlayer?'YOU':'AI'} - ${Math.floor(s.length)}`).join("<br>");
-
     requestAnimationFrame(loop);
 }
 
