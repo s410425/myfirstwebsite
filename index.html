@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io</title>
+<title>Snake.io 完全修正版</title>
 <style>
 body{margin:0;overflow:hidden;background:#111;font-family:sans-serif}
 canvas{display:block}
@@ -15,7 +15,7 @@ button{font-size:26px;padding:12px 40px;border:none;border-radius:10px;backgroun
 </head>
 <body>
 <div id="menu">
-<h1>Snake.io1</h1>
+<h1>Snake.io</h1>
 <button onclick="start()">開始遊戲</button>
 </div>
 <div id="rank"></div>
@@ -35,8 +35,9 @@ let foods=[],ai=[],particles=[];
 let mouse={x:0,y:0},keys={};
 let exp=0,expMax=100;
 let aiRespawnQueue=[];
+let toDie=[]; // 用來暫存本幀死亡的蛇
 
-//距離計算平方版本 (加快)
+//距離平方
 function dist2(a,b){let dx=a.x-b.x,dy=a.y-b.y;return dx*dx+dy*dy}
 function dist(a,b){return Math.sqrt(dist2(a,b))}
 
@@ -56,7 +57,7 @@ function spawnAI(){
     x=(Math.random()*MAP*2)-MAP;
     y=(Math.random()*MAP*2)-MAP;
     let d=dist({x,y},player.body[0]);
-    if(d>200 && d<1200) break; // 隨機生成距玩家200~1200
+    if(d>200 && d<1200) break;
   }
   ai.push({
     body:[{x,y}],
@@ -133,26 +134,32 @@ function eatFood(s){
   }
 }
 
-// 死亡
-function death(s){
-  explode(s.body[0].x,s.body[0].y);
-  let bodyCopy = s.body.slice(); // 複製蛇身
-  s.body=[]; // 先清空避免 loop 爆掉
-  for(let p of bodyCopy){spawnFood(p.x+(Math.random()-0.5)*10,p.y+(Math.random()-0.5)*10);}
-  if(s===player){player.body=[{x:0,y:0}];player.length=100;exp=0;}
-  else{let idx=ai.indexOf(s);if(idx!=-1) ai.splice(idx,1); aiRespawnQueue.push(120);}
+// 標記死亡，統一處理
+function markDeath(s){if(!toDie.includes(s)) toDie.push(s);}
+
+// 死亡處理
+function processDeath(){
+  for(let s of toDie){
+    explode(s.body[0].x,s.body[0].y);
+    let bodyCopy = s.body.slice();
+    s.body=[];
+    for(let p of bodyCopy){spawnFood(p.x+(Math.random()-0.5)*10,p.y+(Math.random()-0.5)*10);}
+    if(s===player){player.body=[{x:0,y:0}];player.length=100; exp=0;}
+    else{let idx=ai.indexOf(s); if(idx!=-1) ai.splice(idx,1); aiRespawnQueue.push(120);}
+  }
+  toDie=[];
 }
 
 // 碰撞檢查
 function checkDeath(s){
   let h=s.body[0];
-  if(h.x<-MAP||h.x>MAP||h.y<-MAP||h.y>MAP){death(s); return;}
+  if(h.x<-MAP||h.x>MAP||h.y<-MAP||h.y>MAP){markDeath(s); return;}
   // 撞自己
-  for(let i=5;i<s.body.length;i++){if(dist2(h,s.body[i])<64){death(s); return;}}
+  for(let i=5;i<s.body.length;i++){if(dist2(h,s.body[i])<64){markDeath(s); return;}}
   // 撞其他
   for(let other of [player,...ai]){
     if(other===s) continue;
-    for(let p of other.body){if(dist2(h,p)<64){death(s); return;}}
+    for(let p of other.body){if(dist2(h,p)<64){markDeath(s); return;}}
   }
 }
 
@@ -198,6 +205,9 @@ function loop(){
   drawSnake(player); for(let s of ai) drawSnake(s);
   updateParticles(); cameraUpdate(); leaderboard();
 
+  // 統一處理死亡
+  processDeath();
+
   // AI重生計時
   for(let i=aiRespawnQueue.length-1;i>=0;i--){aiRespawnQueue[i]--; if(aiRespawnQueue[i]<=0){spawnAI(); aiRespawnQueue.splice(i,1);}}
 
@@ -216,4 +226,3 @@ addEventListener("keyup",e=>keys[e.key]=false);
 </script>
 </body>
 </html>
-
