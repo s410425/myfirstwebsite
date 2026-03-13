@@ -2,23 +2,13 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 單機升級版 + 選單</title>
+<title>Snake.io 單機版安全版</title>
 <style>
 body{margin:0;overflow:hidden;background:#111;color:white;font-family:sans-serif;}
 canvas{display:block;}
-#rank{
-    position:absolute; top:10px; right:10px;
-    background:rgba(0,0,0,0.5); padding:10px; border-radius:10px; font-size:14px;
-}
-#menu{
-    position:absolute; top:0; left:0;
-    width:100%; height:100%;
-    background:rgba(0,0,0,0.9);
-    display:flex; justify-content:center; align-items:center; flex-direction:column;
-}
-button{
-    font-size:24px; margin:10px; padding:10px 30px; border:none; border-radius:10px; cursor:pointer;
-}
+#rank{position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.5); padding:10px; border-radius:10px; font-size:14px;}
+#menu{position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center; flex-direction:column;}
+button{font-size:24px; margin:10px; padding:10px 30px; border:none; border-radius:10px; cursor:pointer;}
 </style>
 </head>
 <body>
@@ -38,15 +28,16 @@ const ctx=canvas.getContext("2d")
 canvas.width=window.innerWidth
 canvas.height=window.innerHeight
 
-let camera={x:0,y:0}
-let foods=[], aiSnakes=[], keys={}, mouse={x:canvas.width/2,y:canvas.height/2}
-let gameStarted=false
+let camera={x:0,y:0}, foods=[], aiSnakes=[], keys={}, mouse={x:canvas.width/2,y:canvas.height/2}, gameStarted=false
 
+// 玩家蛇
 let player={body:[{x:0,y:0}],dir:{x:1,y:0},length:150,speed:2,color:"lime"}
 
+// 生成食物
 function spawnFood(){ foods.push({x:(Math.random()-0.5)*4000,y:(Math.random()-0.5)*4000,r:5,life:600}) }
 for(let i=0;i<200;i++) spawnFood()
 
+// 生成AI
 function spawnAI(){ aiSnakes.push({body:[{x:(Math.random()-0.5)*2000,y:(Math.random()-0.5)*2000}], dir:{x:Math.random()-0.5,y:Math.random()-0.5}, length:150, speed:2, color:`hsl(${Math.random()*360},70%,50%)`}) }
 for(let i=0;i<20;i++) spawnAI()
 
@@ -55,16 +46,15 @@ function moveSnake(s){const head={x:s.body[0].x+s.dir.x*s.speed, y:s.body[0].y+s
 function drawSnake(s){for(let i=0;i<s.body.length;i++){let p=s.body[i]; ctx.globalAlpha=1-i/s.body.length; ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(p.x-camera.x,p.y-camera.y,8,0,Math.PI*2); ctx.fill()} ctx.globalAlpha=1}
 function drawFood(f){let g=ctx.createRadialGradient(f.x-camera.x,f.y-camera.y,0,f.x-camera.x,f.y-camera.y,10); g.addColorStop(0,"#fff"); g.addColorStop(1,"red"); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(f.x-camera.x,f.y-camera.y,f.r,0,Math.PI*2); ctx.fill()}
 
-// 吃食物，降低吸引速度
+// 吃食物
 function eatFood(s){
     for(let i=foods.length-1;i>=0;i--){
         let f=foods[i]
         if(dist(s.body[0],f)<80){
             let dx=s.body[0].x-f.x, dy=s.body[0].y-f.y
             let l=Math.hypot(dx,dy)
-            let attractSpeed=1.0 // 磁鐵效果降低
-            f.x += (dx/l)*attractSpeed
-            f.y += (dy/l)*attractSpeed
+            f.x += (dx/l)*1 // 減弱磁鐵速度
+            f.y += (dy/l)*1
         }
         if(dist(s.body[0],f)<12){s.length+=10; foods.splice(i,1); spawnFood()}
         else{f.life--; if(f.life<=0) foods.splice(i,1)}
@@ -81,7 +71,7 @@ function leaderboard(){let all=[player,...aiSnakes]; all.sort((a,b)=>b.length-a.
 
 // 玩家控制
 function playerControl(){
-    let sp=keys["Shift"]?6:4 // 更快加速
+    let sp=keys["Shift"]?6:4
     player.speed=sp
     let dx=mouse.x+camera.x-player.body[0].x
     let dy=mouse.y+camera.y-player.body[0].y
@@ -95,7 +85,7 @@ function playerControl(){
 
 function updateCamera(){camera.x=player.body[0].x-canvas.width/2; camera.y=player.body[0].y-canvas.height/2}
 
-function game(){
+function gameLoop(){
     if(!gameStarted) return
     ctx.clearRect(0,0,canvas.width,canvas.height)
     playerControl()
@@ -114,7 +104,7 @@ function game(){
     foods.forEach(drawFood)
     updateCamera()
     leaderboard()
-    requestAnimationFrame(game)
+    requestAnimationFrame(gameLoop)
 }
 
 // 監聽
@@ -122,17 +112,15 @@ document.addEventListener("keydown",e=>keys[e.key]=true)
 document.addEventListener("keyup",e=>keys[e.key]=false)
 canvas.addEventListener("mousemove",e=>{mouse.x=e.clientX; mouse.y=e.clientY})
 
-// 選單按鈕
+// 選單
 document.getElementById("startBtn").addEventListener("click",()=>{
     gameStarted=true
     document.getElementById("menu").style.display="none"
+    requestAnimationFrame(gameLoop) // 開始遊戲後才啟動迴圈
 })
 document.getElementById("infoBtn").addEventListener("click",()=>{
     alert("滑鼠控制方向，Shift加速，撞到蛇身會死亡，死亡會變食物")
 })
-
-// 啟動迴圈
-game()
 </script>
 
 </body>
