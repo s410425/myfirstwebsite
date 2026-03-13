@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 玩家至尊主宰版</title>
+<title>Snake.io 玩家專屬磁力版</title>
 <style>
     body{margin:0;overflow:hidden;background:#050505;font-family:sans-serif;user-select:none}
     canvas{display:block}
@@ -16,10 +16,10 @@
 <body>
 
 <div id="menu">
-    <h1 style="color:#0f4">SNAKE OVERLORD</h1>
+    <h1 style="color:#0f4">SNAKE MAGNET</h1>
     <p style="color:#888">【玩家專屬】全圖無死角磁力：80x 長度</p>
-    <p style="color:#888">【玩家專屬】引力捕食：強制拖曳所有 AI 蛇隻</p>
-    <button onclick="start()">降臨戰場</button>
+    <p style="color:#888">AI 不受引力影響，需靠操作獵殺</p>
+    <button onclick="start()">開始戰鬥</button>
 </div>
 
 <div id="score-ui">SCORE: 150</div>
@@ -91,10 +91,10 @@ class Snake {
         }
         ctx.beginPath();
         ctx.moveTo(toSX(this.body[0].x), toSY(this.body[0].y));
-        for(let p of this.body) ctx.lineTo(toSX(p.y ? p.x : p.x), toSY(p.y));
+        for(let p of this.body) ctx.lineTo(toSX(p.x), toSY(p.y));
         ctx.stroke();
         ctx.shadowBlur = 0;
-        // 眼睛
+        
         ctx.fillStyle = "white";
         let eyeOff = thickness * 0.4;
         ctx.beginPath();
@@ -132,47 +132,32 @@ function loop() {
     camera.zoom += (targetZoom - camera.zoom) * 0.05;
     camera.x = player.body[0].x; camera.y = player.body[0].y;
 
-    // --- 【玩家專屬】究極磁力系統 ---
+    // --- 【玩家專屬】磁力系統 (僅對食物有效) ---
     let magnetRange = 80 * player.length;
 
-    // 1. 吸引食物
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
         let dx = player.body[0].x - f.x, dy = player.body[0].y - f.y;
         let distSq = dx*dx + dy*dy;
         
         if (distSq < magnetRange * magnetRange) {
-            f.x += dx * 0.4; f.y += dy * 0.4; // 只有玩家吸食物
+            f.x += dx * 0.4; f.y += dy * 0.4;
             if (distSq < 1000) {
                 player.length += f.val + (player.length * 0.02);
                 foods.splice(i, 1);
                 spawnFood();
             }
         }
-        // AI 只能正常吃 (距離極近)
+        
+        // AI 正常進食判定
         ai.forEach(s => {
             let adx = s.body[0].x - f.x, ady = s.body[0].y - f.y;
             if (adx*adx + ady*ady < 600) {
-                s.length += f.val; foods.splice(i, 1); spawnFood();
+                s.length += f.val; 
+                if (foods[i]) { foods.splice(i, 1); spawnFood(); }
             }
         });
     }
-
-    // 2. 【玩家專屬】引力捕食
-    ai.forEach(prey => {
-        if (prey.dead) return;
-        let dx = player.body[0].x - prey.body[0].x;
-        let dy = player.body[0].y - prey.body[0].y;
-        let distSq = dx*dx + dy*dy;
-
-        if (distSq < magnetRange * magnetRange) {
-            // 強制向玩家頭部拖曳
-            let force = 0.08; 
-            prey.body.forEach(seg => { seg.x += dx * force; seg.y += dy * force; });
-            // 擾亂 AI 方向
-            prey.angle = Math.atan2(dy, dx);
-        }
-    });
 
     // 3. 更新與碰撞
     player.angle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
@@ -180,29 +165,38 @@ function loop() {
     if (Math.abs(player.body[0].x) > MAP || Math.abs(player.body[0].y) > MAP) player.dead = true;
 
     ai.forEach(s => {
+        if (Math.random() > 0.98) {
+            let f = foods[Math.floor(Math.random()*foods.length)];
+            s.angle = Math.atan2(f.y - s.body[0].y, f.x - s.body[0].x);
+        }
         s.update();
         if (Math.abs(s.body[0].x) > MAP || Math.abs(s.body[0].y) > MAP) s.dead = true;
         
-        // 玩家撞 AI
-        let minDist = (player.getWidth() + s.getWidth()) * 0.45;
-        for (let j = 0; j < s.body.length; j += 4) {
-            let dx = player.body[0].x - s.body[j].x, dy = player.body[0].y - s.body[j].y;
-            if (dx*dx + dy*dy < minDist * minDist) player.dead = true;
-        }
-        // AI 撞玩家 (或 AI 撞 AI)
         let snakes = [player, ...ai];
         snakes.forEach(other => {
             if (other === s || other.dead) return;
             let h = s.body[0];
-            let dSq = (h.x-other.body[0].x)**2 + (h.y-other.body[0].y)**2;
-            if (dSq < (s.getWidth()+other.getWidth())**2 * 0.2) s.dead = true;
+            let minDist = (s.getWidth() + other.getWidth()) * 0.45;
+            for (let j = 0; j < other.body.length; j += 6) {
+                let dx = h.x - other.body[j].x, dy = h.y - other.body[j].y;
+                if (dx*dx + dy*dy < minDist * minDist) s.dead = true;
+            }
         });
         if (s.dead) toDie.push(s);
     });
 
+    // 玩家被撞判斷
+    ai.forEach(other => {
+        let minDist = (player.getWidth() + other.getWidth()) * 0.45;
+        for (let j = 0; j < other.body.length; j += 4) {
+            let dx = player.body[0].x - other.body[j].x, dy = player.body[0].y - other.body[j].y;
+            if (dx*dx + dy*dy < minDist * minDist) player.dead = true;
+        }
+    });
+
     if (player.dead) { player = new Snake(0, 0, "#0f4", true); }
     toDie.forEach(s => {
-        for(let k=0; k<50; k++) spawnFood(s.body[0].x+(Math.random()-0.5)*150, s.body[0].y+(Math.random()-0.5)*150, true, s.color);
+        for(let k=0; k<50; k++) spawnFood(s.body[0].x+(Math.random()-0.5)*200, s.body[0].y+(Math.random()-0.5)*200, true, s.color);
         ai.splice(ai.indexOf(s), 1); spawnAI();
     });
     toDie = [];
@@ -210,9 +204,9 @@ function loop() {
     ai.forEach(a => a.draw());
     player.draw();
 
-    document.getElementById("score-ui").innerText = `DOMINATION: ${Math.floor(player.length)}`;
+    document.getElementById("score-ui").innerText = `LENGTH: ${Math.floor(player.length)}`;
     let ranking = [player, ...ai].sort((a,b)=>b.length - a.length).slice(0, 5);
-    document.getElementById("ui-layer").innerHTML = "<b>VICTIMS RANK</b><br><hr>" + ranking.map((s,i)=>`${i+1}. ${s.isPlayer?'YOU (KING)':'AI'} - ${Math.floor(s.length)}`).join("<br>");
+    document.getElementById("ui-layer").innerHTML = "<b>LEADERBOARD</b><br><hr>" + ranking.map((s,i)=>`${i+1}. ${s.isPlayer?'YOU':'AI'} - ${Math.floor(s.length)}`).join("<br>");
 
     requestAnimationFrame(loop);
 }
