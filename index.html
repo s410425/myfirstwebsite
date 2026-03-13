@@ -2,23 +2,23 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 磁力流暢版 (Cap 750)</title>
+<title>Snake.io 磁力流暢版 - 視野最佳化</title>
 <style>
     body{margin:0;overflow:hidden;background:#050505;font-family:sans-serif;user-select:none}
     canvas{display:block}
-    #ui-layer{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.8);padding:15px;border-radius:12px;border:1px solid #0f4;backdrop-filter:blur(5px);pointer-events:none}
+    #ui-layer{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.8);padding:15px;border-radius:12px;border:1px solid #0f4;backdrop-filter:blur(5px);pointer-events:none;font-size:14px;line-height:1.5;min-width:150px}
     #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:28px;font-weight:bold;text-shadow:0 0 15px #0f4}
     #menu{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;z-index:100}
     button{font-size:28px;padding:15px 70px;cursor:pointer;background:#0f4;border:none;border-radius:50px;font-weight:bold;margin-top:20px;transition:0.3s}
     button:hover{transform:scale(1.1);box-shadow:0 0 30px #0f4}
+    hr{border:0;border-top:1px solid #0f4;margin:10px 0}
 </style>
 </head>
 <body>
 
 <div id="menu">
-    <h1 style="color:#0f4">SNAKE MAGNET: SMOOTH</h1>
-    <p style="color:#888">【磁力上限 750】食物平滑吸引動畫</p>
-    <p style="color:#888">視覺寬度上限 100px | 長度無限成長</p>
+    <h1 style="color:#0f4">SNAKE MAGNET: 3,000</h1>
+    <p style="color:#888">【排行榜已修復】磁力上限 3,000 | 視野校準</p>
     <button onclick="start()">開始戰鬥</button>
 </div>
 
@@ -128,12 +128,14 @@ function loop() {
     if (!started) return;
     ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    let targetZoom = Math.max(0.08, 1.1 - (player.length / 15000));
+    // --- 【優化：視野縮放邏輯】 ---
+    // 限制最小 Zoom 為 0.25，防止視野太大導致東西縮得太小
+    let targetZoom = Math.max(0.25, 1.1 - (player.length / 8000));
     camera.zoom += (targetZoom - camera.zoom) * 0.04;
     camera.x = player.body[0].x; camera.y = player.body[0].y;
 
-    // --- 【動畫感磁力判定】 ---
-    let magnetRange = Math.min(750, 10 * player.length);
+    // --- 【優化：磁力動畫 (3000)】 ---
+    let magnetRange = Math.min(3000, 10 * player.length);
 
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
@@ -141,19 +143,18 @@ function loop() {
         let distSq = dx*dx + dy*dy;
         
         if (distSq < magnetRange * magnetRange) {
-            // 讓食物滑向頭部的動畫感 (Lerp)
-            // 使用 0.15 的係數讓它有流動感，而非瞬間吸入
-            f.x += dx * 0.15; f.y += dy * 0.15;
+            // 食物滑動感動畫
+            f.x += dx * 0.12; f.y += dy * 0.12;
             
-            // 真正的進食判定（縮得很小，確保視覺上食物是進到嘴巴才消失）
-            if (distSq < (player.getWidth() * player.getWidth() * 0.5)) {
+            // 進食判斷 (進入身體範圍)
+            let headSize = player.getWidth();
+            if (distSq < (headSize * headSize * 0.6)) {
                 player.length += f.val + (player.length * 0.02);
                 foods.splice(i, 1);
                 spawnFood();
             }
         }
         
-        // AI 正常進食
         ai.forEach(s => {
             let adx = s.body[0].x - f.x, ady = s.body[0].y - f.y;
             if (adx*adx + ady*ady < 600) {
@@ -163,7 +164,6 @@ function loop() {
         });
     }
 
-    // 繪製食物
     const toSX = x => (x - camera.x) * camera.zoom + canvas.width/2;
     const toSY = y => (y - camera.y) * camera.zoom + canvas.height/2;
     foods.forEach(f => {
@@ -173,7 +173,6 @@ function loop() {
         ctx.fill();
     });
 
-    // 更新玩家與 AI
     player.angle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
     player.update();
     if (Math.abs(player.body[0].x) > MAP || Math.abs(player.body[0].y) > MAP) player.dead = true;
@@ -191,7 +190,7 @@ function loop() {
             if (other === s || other.dead) return;
             let h = s.body[0];
             let minDist = (s.getWidth() + other.getWidth()) * 0.45;
-            for (let j = 0; j < other.body.length; j += 7) {
+            for (let j = 0; j < other.body.length; j += 8) {
                 let dx = h.x - other.body[j].x, dy = h.y - other.body[j].y;
                 if (dx*dx + dy*dy < minDist * minDist) s.dead = true;
             }
@@ -199,10 +198,17 @@ function loop() {
         if (s.dead) toDie.push(s);
     });
 
-    // 死亡結算
+    ai.forEach(other => {
+        let minDist = (player.getWidth() + other.getWidth()) * 0.45;
+        for (let j = 0; j < other.body.length; j += 5) {
+            let dx = player.body[0].x - other.body[j].x, dy = player.body[0].y - other.body[j].y;
+            if (dx*dx + dy*dy < minDist * minDist) player.dead = true;
+        }
+    });
+
     if (player.dead) { player = new Snake(0, 0, "#0f4", true); }
     toDie.forEach(s => {
-        let count = Math.min(60, Math.floor(s.length/30));
+        let count = Math.min(50, Math.floor(s.length/40));
         for(let k=0; k<count; k++) spawnFood(s.body[0].x+(Math.random()-0.5)*200, s.body[0].y+(Math.random()-0.5)*200, true, s.color);
         ai.splice(ai.indexOf(s), 1); spawnAI();
     });
@@ -211,7 +217,12 @@ function loop() {
     ai.forEach(a => a.draw());
     player.draw();
 
+    // --- 【排行榜更新】 ---
     document.getElementById("score-ui").innerText = `LENGTH: ${Math.floor(player.length)}`;
+    let ranking = [player, ...ai].sort((a,b)=>b.length - a.length).slice(0, 7);
+    document.getElementById("ui-layer").innerHTML = "<b>🏆 LEADERBOARD</b><hr>" + 
+        ranking.map((s,i)=>`<div style="color:${s.isPlayer?'#0f4':'#fff'}">${i+1}. ${s.isPlayer?'YOU':'AI SNAKE'} <span style="float:right">${Math.floor(s.length)}</span></div>`).join("");
+
     requestAnimationFrame(loop);
 }
 
