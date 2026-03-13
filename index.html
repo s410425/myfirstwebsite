@@ -2,63 +2,86 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io Arena - 終極大集結</title>
+<title>Snake.io Arena - Ultimate All-in-One</title>
 <style>
     body{margin:0;overflow:hidden;background:#050505;font-family:'Segoe UI', sans-serif;user-select:none;touch-action:none}
     canvas{display:block}
     
-    /* UI 介面 */
-    #ui-layer{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.85);padding:15px;border-radius:12px;border:1px solid #0f4;min-width:180px;display:none;pointer-events:none;font-size:13px}
+    /* 頂部排行榜與紀錄 */
+    #ui-layer{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.85);padding:15px;border-radius:12px;border:1px solid #0f4;backdrop-filter:blur(10px);pointer-events:none;min-width:180px;display:none;z-index:10}
+    #permanent-rank{position:absolute;top:20px;left:20px;color:#eee;background:rgba(20,20,20,0.9);padding:15px;border-radius:12px;font-size:13px;border:1px solid #444;width:200px}
     #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:32px;font-weight:bold;text-shadow:0 0 15px #0f4;display:none}
     
-    /* 技能 UI */
+    /* 技能與能量 UI */
     #skill-ui{position:absolute;bottom:20px;left:20px;display:none;flex-direction:column;gap:10px}
-    .skill-slot{background:rgba(20,20,20,0.9);padding:10px 15px;border-radius:8px;border:1px solid #444;width:170px;color:#eee;position:relative;overflow:hidden}
+    .skill-slot{background:rgba(0,0,0,0.7);padding:8px 15px;border-radius:8px;border:1px solid #555;width:170px;position:relative;overflow:hidden;color:white;font-size:12px}
     .skill-bar{position:absolute;bottom:0;left:0;height:4px;background:#f0f;width:0%;transition:width 0.1s linear}
+    .ready{border-color:#0f4;box-shadow:0 0 10px rgba(0,255,68,0.3)}
 
-    /* 選單 */
-    #menu{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.96);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;z-index:100}
-    .mode-btn{padding:15px 30px;border:1px solid #333;cursor:pointer;margin:10px;border-radius:10px;background:rgba(255,255,255,0.05);transition:0.3s}
-    .mode-btn.active{border-color:#0f4;background:rgba(0,255,68,0.15)}
-    #start-btn{padding:15px 80px;font-size:24px;background:#0f4;border:none;border-radius:50px;cursor:pointer;font-weight:bold;margin-top:30px}
+    /* 主選單 */
+    #menu{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;z-index:100}
+    #player-name{background:transparent;border:2px solid #333;border-radius:8px;padding:10px;color:#0f4;font-size:20px;text-align:center;outline:none;margin:20px}
+    .mode-group{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+    .mode-card{background:rgba(255,255,255,0.05);padding:15px;border-radius:12px;border:1px solid #333;text-align:center;width:100px;cursor:pointer;transition:0.2s}
+    .mode-card.active{border-color:#0f4;background:rgba(0,255,68,0.1)}
+    #start-btn{font-size:24px;padding:12px 60px;cursor:pointer;background:#0f4;border:none;border-radius:50px;font-weight:bold;margin-top:30px}
+    .magic-text{background:linear-gradient(90deg,#f0f,#0af,#f0f);-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:flow 2s infinite linear;font-weight:bold}
+    @keyframes flow{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(360deg)}}
 </style>
 </head>
 <body>
 
 <div id="menu">
-    <h1 style="font-size:60px;margin:0;letter-spacing:5px">SNAKE<span style="color:#f0f">.IO</span></h1>
-    <div style="display:flex;margin-top:30px">
-        <div class="mode-btn active" id="btn-magic" onclick="setMode('magic')">✨ 魔法模式</div>
-        <div class="mode-btn" id="btn-classic" onclick="setMode('classic')">🛡️ 經典模式</div>
+    <h1 style="font-size:50px;margin:0">SNAKE.IO <span class="magic-text">ARENA</span></h1>
+    <input type="text" id="player-name" placeholder="YOUR NAME" maxlength="10">
+    <div class="mode-group">
+        <div class="mode-card active" id="m-magic" onclick="selectMode('magic', 5000)">✨ 魔法</div>
+        <div class="mode-card" id="m-evo" onclick="selectMode('evo', 3000)">⚡ 覺醒</div>
+        <div class="mode-card" id="m-classic" onclick="selectMode('classic', 300)">🛡️ 經典</div>
+        <div class="mode-card" id="m-online" onclick="selectMode('online', 300)">🌍 連機</div>
     </div>
     <button id="start-btn" onclick="startGame()">START</button>
 </div>
 
-<div id="ui-layer"></div>
 <div id="skill-ui">
-    <div class="skill-slot">瞬移 [Space] <div class="skill-bar" id="bar-blink"></div></div>
-    <div class="skill-slot">磁力魔球 [Q] <div class="skill-bar" id="bar-syphon"></div></div>
-    <div class="skill-slot">時空緩速 [右鍵] <div class="skill-bar" id="bar-warp"></div></div>
+    <div class="skill-slot" id="ui-blink">瞬移 [SPACE] <div class="skill-bar" id="bar-blink"></div></div>
+    <div class="skill-slot" id="ui-syphon">磁力魔球 [Q] <div class="skill-bar" id="bar-syphon"></div></div>
+    <div class="skill-slot" id="ui-warp">時空緩速 [右鍵] <div class="skill-bar" id="bar-warp"></div></div>
+</div>
+
+<div id="permanent-rank">
+    <b id="rank-title" style="color:#0f4">🏆 MAGIC 紀錄</b><hr>
+    <div id="p-list">尚無紀錄</div>
 </div>
 
 <div id="score-ui">SCORE: 0</div>
+<div id="ui-layer"></div>
 <canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const MAP = 4500;
+const MAP = 5000;
 let started = false;
-let currentMode = 'magic';
+let currentMode = 'magic', currentMagnet = 5000;
 let player, foods = [], ai_bots = [];
 let mouse = {x:0, y:0, down:false, right:false}, keys = {};
 let cooldowns = { blink: 0, syphon: 0, warp: 100 };
-let anim;
+let animId;
 
-function setMode(m) {
-    currentMode = m;
-    document.getElementById('btn-magic').classList.toggle('active', m === 'magic');
-    document.getElementById('btn-classic').classList.toggle('active', m === 'classic');
+function selectMode(m, mag) {
+    currentMode = m; currentMagnet = mag;
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
+    document.getElementById(`m-${m}`).classList.add('active');
+    updateRankDisplay();
+}
+
+function updateRankDisplay() {
+    let records = JSON.parse(localStorage.getItem(`snake_record_${currentMode}`) || '[]');
+    document.getElementById('rank-title').innerText = `🏆 ${currentMode.toUpperCase()} 紀錄`;
+    document.getElementById('p-list').innerHTML = records.length ? records.map((r, i) => 
+        `<div>${i+1}. ${r.name} <span style="float:right;color:#0f4">${r.score}</span></div>`
+    ).join('') : "尚無紀錄";
 }
 
 class Snake {
@@ -70,152 +93,133 @@ class Snake {
         this.angle = Math.random() * 6.28;
         this.dead = false;
         this.birth = Date.now();
+        this.name = isPlayer ? (document.getElementById('player-name').value || "YOU") : (currentMode==='online'?"PLAYER_"+Math.floor(Math.random()*99):"AI_BOT");
     }
     get radius() { return 10 + Math.sqrt(this.length) * 0.45; }
-    
     update(isSlowed) {
         if (this.dead) return;
-        let boost = (this.isPlayer && (mouse.down || keys['Shift'])) && this.length > 300;
-        let speed = (boost ? 9 : 4.5);
-        if (isSlowed && !this.isPlayer) speed *= 0.35;
-        
-        if (boost) this.length -= 0.8;
+        let speed = (this.isPlayer && (mouse.down || keys['Shift'])) && this.length > 300 ? 9 : 4.5;
+        if (isSlowed && !this.isPlayer) speed *= 0.3;
+        if (this.isPlayer && speed > 4.5) this.length -= 0.8;
         this.length = Math.max(200, this.length);
 
-        let head = {
-            x: this.body[0].x + Math.cos(this.angle) * speed,
-            y: this.body[0].y + Math.sin(this.angle) * speed
-        };
+        let head = { x: this.body[0].x + Math.cos(this.angle)*speed, y: this.body[0].y + Math.sin(this.angle)*speed };
         this.body.unshift(head);
-
         let d = 0;
         for (let i = 0; i < this.body.length - 1; i++) {
             d += Math.hypot(this.body[i+1].x - this.body[i].x, this.body[i+1].y - this.body[i].y);
             if (d > this.length) { this.body.splice(i + 1); break; }
         }
     }
-
     draw(camX, camY, zoom) {
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = this.radius * 2 * zoom;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
+        ctx.strokeStyle = this.color; ctx.lineWidth = this.radius*2*zoom; ctx.lineCap = "round"; ctx.lineJoin = "round";
         if(this.isPlayer) { ctx.shadowBlur = 15*zoom; ctx.shadowColor = this.color; }
         ctx.beginPath();
         this.body.forEach((p, i) => {
-            let sx = (p.x - camX) * zoom + canvas.width/2;
-            let sy = (p.y - camY) * zoom + canvas.height/2;
+            let sx = (p.x - camX)*zoom + canvas.width/2;
+            let sy = (p.y - camY)*zoom + canvas.height/2;
             if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
         });
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+        ctx.stroke(); ctx.shadowBlur = 0;
+        if (zoom > 0.4) {
+            ctx.fillStyle = "white"; ctx.font = `${12*zoom}px Arial`; ctx.textAlign = "center";
+            ctx.fillText(this.name, (this.body[0].x - camX)*zoom + canvas.width/2, (this.body[0].y - camY)*zoom + canvas.height/2 - this.radius*zoom - 5);
+        }
     }
 }
 
-function spawnFood(x, y, isMagic = false) {
+function spawnFood(x, y, big = false, color = null) {
     foods.push({
-        x: x ?? (Math.random()-0.5) * MAP * 2,
-        y: y ?? (Math.random()-0.5) * MAP * 2,
-        size: isMagic ? 12 : 6,
-        val: isMagic ? 150 : 35,
-        color: isMagic ? "#f0f" : `hsl(${Math.random()*360}, 100%, 75%)`,
-        magic: isMagic
+        x: x ?? (Math.random()-0.5)*MAP*2, y: y ?? (Math.random()-0.5)*MAP*2,
+        val: big ? 150 : 30, size: big ? 10 : 5,
+        color: color ?? `hsl(${Math.random()*360}, 100%, 75%)`,
+        magic: !!color
     });
 }
 
 function loop() {
     if (!started) return;
-
-    // 技能冷卻
     if (cooldowns.blink > 0) cooldowns.blink -= 16;
     if (cooldowns.syphon > 0) cooldowns.syphon -= 16;
-    let isWarping = (currentMode === 'magic' && mouse.right && cooldowns.warp > 0);
-    if (isWarping) cooldowns.warp -= 0.6; else if (cooldowns.warp < 100) cooldowns.warp += 0.15;
+    let warping = (currentMode === 'magic' && mouse.right && cooldowns.warp > 0);
+    if(warping) cooldowns.warp -= 0.5; else if(cooldowns.warp < 100) cooldowns.warp += 0.1;
 
-    ctx.fillStyle = isWarping ? "#12001a" : "#050505";
+    ctx.fillStyle = warping ? "#1a0020" : "#050505";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     let head = player.body[0];
-    let zoom = Math.max(0.3, 1.1 - player.length/12000);
-
+    let zoom = Math.max(0.3, 1.1 - player.length/15000);
     player.angle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
-    player.update(isWarping);
+    player.update(warping);
 
-    // 碰撞邊界
     if (Math.abs(head.x) > MAP || Math.abs(head.y) > MAP) player.dead = true;
 
-    // 食物與吸力
+    // 食物邏輯
     foods.forEach((f, i) => {
         let d = Math.hypot(head.x - f.x, head.y - f.y);
-        let pullRange = f.magic ? 800 : 400;
-        if (d < pullRange) {
-            f.x += (head.x - f.x) * 0.15;
-            f.y += (head.y - f.y) * 0.15;
-            if (d < player.radius) {
-                player.length += f.val;
-                foods.splice(i, 1);
-                if(!f.magic) spawnFood();
-            }
+        let pull = f.magic ? 1000 : currentMagnet;
+        if (d < pull) {
+            f.x += (head.x - f.x)*0.2; f.y += (head.y - f.y)*0.2;
+            if (d < player.radius) { player.length += f.val; foods.splice(i, 1); if(!f.magic) spawnFood(); }
         }
-        ctx.fillStyle = f.color;
-        ctx.beginPath();
-        ctx.arc((f.x - head.x)*zoom + canvas.width/2, (f.y - head.y)*zoom + canvas.height/2, f.size*zoom, 0, 7);
-        ctx.fill();
+        ctx.fillStyle = f.color; ctx.beginPath();
+        ctx.arc((f.x - head.x)*zoom + canvas.width/2, (f.y - head.y)*zoom + canvas.height/2, f.size*zoom, 0, 7); ctx.fill();
     });
 
-    // AI 處理
+    // AI 與碰撞
     ai_bots.forEach(ai => {
-        ai.update(isWarping);
+        ai.update(warping);
         if (Math.random() > 0.98) ai.angle += (Math.random()-0.5);
-
-        // 碰撞判定 (精確版)
+        
         let snakes = [player, ...ai_bots];
         snakes.forEach(target => {
             if (ai === target || (Date.now() - ai.birth < 1500)) return;
-            for (let i = 0; i < target.body.length; i += 5) {
-                let p = target.body[i];
-                if (Math.hypot(ai.body[0].x - p.x, ai.body[0].y - p.y) < target.radius * 0.8) ai.dead = true;
+            for (let i = 0; i < target.body.length; i += 6) {
+                if (Math.hypot(ai.body[0].x - target.body[i].x, ai.body[0].y - target.body[i].y) < target.radius*0.8) ai.dead = true;
             }
         });
-        
-        // 玩家撞 AI
         if (Date.now() - player.birth > 1500) {
-            for (let i = 0; i < ai.body.length; i += 5) {
-                let p = ai.body[i];
-                if (Math.hypot(head.x - p.x, head.y - p.y) < ai.radius * 0.8) player.dead = true;
+            for (let i = 0; i < ai.body.length; i += 6) {
+                if (Math.hypot(head.x - ai.body[i].x, head.y - ai.body[i].y) < ai.radius*0.8) player.dead = true;
             }
         }
     });
 
     if (player.dead) {
+        saveRecord(); started = false;
         alert("GAME OVER! SCORE: " + Math.floor(player.length));
         location.reload(); return;
     }
 
     ai_bots = ai_bots.filter(a => {
         if(a.dead) {
-            for(let k=0; k<8; k++) spawnFood(a.body[0].x + (Math.random()-0.5)*200, a.body[0].y + (Math.random()-0.5)*200, true);
+            for(let k=0; k<10; k++) spawnFood(a.body[0].x+(Math.random()-0.5)*200, a.body[0].y+(Math.random()-0.5)*200, true, a.color);
             return false;
         }
         return true;
     });
-    while(ai_bots.length < 25) ai_bots.push(new Snake((Math.random()-0.5)*MAP, (Math.random()-0.5)*MAP, `hsl(${Math.random()*360}, 70%, 50%)`));
+    while(ai_bots.length < 25) ai_bots.push(new Snake((Math.random()-0.5)*MAP, (Math.random()-0.5)*MAP, `hsl(${Math.random()*360}, 60%, 50%)`));
 
     ai_bots.forEach(a => a.draw(head.x, head.y, zoom));
     player.draw(head.x, head.y, zoom);
 
-    // 更新 UI
+    // UI 更新
     document.getElementById("score-ui").innerText = "SCORE: " + Math.floor(player.length);
     if(currentMode === 'magic') {
         document.getElementById("bar-blink").style.width = (1 - Math.max(0, cooldowns.blink)/5000)*100 + "%";
         document.getElementById("bar-syphon").style.width = (1 - Math.max(0, cooldowns.syphon)/15000)*100 + "%";
         document.getElementById("bar-warp").style.width = cooldowns.warp + "%";
-        
-        let rank = [player, ...ai_bots].sort((a,b)=>b.length - a.length).slice(0, 5);
-        document.getElementById("ui-layer").innerHTML = "<b>🏆 排行榜</b><hr>" + rank.map((s,i)=>`<div>${i+1}. ${s.isPlayer?'YOU':s.color} <span style="float:right">${Math.floor(s.length)}</span></div>`).join("");
+        let rank = [player, ...ai_bots].sort((a,b)=>b.length - a.length).slice(0, 7);
+        document.getElementById("ui-layer").innerHTML = "<b>🏆 排行榜</b><hr>" + rank.map((s,i)=>`<div>${i+1}. ${s.name} <span style="float:right">${Math.floor(s.length)}</span></div>`).join("");
     }
+    animId = requestAnimationFrame(loop);
+}
 
-    anim = requestAnimationFrame(loop);
+function saveRecord() {
+    let key = `snake_record_${currentMode}`, records = JSON.parse(localStorage.getItem(key) || '[]');
+    records.push({name: player.name, score: Math.floor(player.length)});
+    records.sort((a,b)=>b.score - a.score);
+    localStorage.setItem(key, JSON.stringify(records.slice(0, 5)));
 }
 
 function startGame() {
@@ -225,12 +229,11 @@ function startGame() {
     for(let i=0; i<400; i++) spawnFood();
     document.getElementById("menu").style.display = "none";
     document.getElementById("score-ui").style.display = "block";
-    document.getElementById("ui-layer").style.display = "block";
-    if(currentMode === 'magic') document.getElementById("skill-ui").style.display = "flex";
+    document.getElementById("ui-layer").style.display = (currentMode === 'magic' ? "block" : "none");
+    document.getElementById("skill-ui").style.display = (currentMode === 'magic' ? "flex" : "none");
     loop();
 }
 
-// 監聽
 window.addEventListener("mousedown", e => { if(e.button===0) mouse.down=true; if(e.button===2) mouse.right=true; });
 window.addEventListener("mouseup", e => { if(e.button===0) mouse.down=false; if(e.button===2) mouse.right=false; });
 window.addEventListener("mousemove", e => { mouse.x = e.clientX; mouse.y = e.clientY; });
@@ -240,22 +243,20 @@ window.addEventListener("keydown", e => {
         player.body.forEach(p => { p.x += Math.cos(player.angle)*350; p.y += Math.sin(player.angle)*350; });
         cooldowns.blink = 5000;
     }
-    if (e.key.toLowerCase() === "q" && currentMode === 'magic' && cooldowns.syphon <= 0 && player.length > 1000) {
-        let targets = ai_bots.sort((a,b)=>b.length - a.length);
+    if (e.key.toLowerCase() === "q" && currentMode === 'magic' && cooldowns.syphon <= 0 && player.length > 800) {
+        let targets = ai_bots.sort((a,b)=>b.length-a.length);
         if(targets[0]) {
-            let target = targets[0];
-            let steal = target.length * 0.5;
-            target.length -= steal;
-            player.length *= 0.85;
-            for(let i=0; i<15; i++) spawnFood(target.body[0].x + (Math.random()-0.5)*300, target.body[0].y + (Math.random()-0.5)*300, true);
+            let t = targets[0]; t.length *= 0.6; player.length *= 0.9;
+            for(let i=0; i<20; i++) spawnFood(t.body[0].x+(Math.random()-0.5)*400, t.body[0].y+(Math.random()-0.5)*400, true, t.color);
             cooldowns.syphon = 15000;
         }
     }
 });
 window.addEventListener("keyup", e => keys[e.key] = false);
-canvas.oncontextmenu = (e) => e.preventDefault(); // 右鍵修復核心
+canvas.oncontextmenu = (e) => e.preventDefault();
 window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
 window.onresize();
+updateRankDisplay();
 </script>
 </body>
 </html>
