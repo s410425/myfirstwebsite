@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 完全修正版</title>
+<title>Snake.io 可長時間版本</title>
 <style>
 body{margin:0;overflow:hidden;background:#111;font-family:sans-serif}
 canvas{display:block}
@@ -25,8 +25,7 @@ button{font-size:26px;padding:12px 40px;border:none;border-radius:10px;backgroun
 <script>
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
-canvas.width=innerWidth;
-canvas.height=innerHeight;
+canvas.width=innerWidth; canvas.height=innerHeight;
 const MAP=2000;
 
 let started=false;
@@ -34,10 +33,9 @@ let camera={x:0,y:0};
 let foods=[],ai=[],particles=[];
 let mouse={x:0,y:0},keys={};
 let exp=0,expMax=100;
-let aiRespawnQueue=[];
-let toDie=[]; // 用來暫存本幀死亡的蛇
+let aiRespawnQueue=[],toDie=[];
 
-//距離平方
+// 距離平方
 function dist2(a,b){let dx=a.x-b.x,dy=a.y-b.y;return dx*dx+dy*dy}
 function dist(a,b){return Math.sqrt(dist2(a,b))}
 
@@ -105,7 +103,7 @@ function drawFood(f){
 // 粒子爆炸
 function explode(x,y){
   for(let i=0;i<12;i++){
-    if(particles.length<300){
+    if(particles.length<200){
       particles.push({x,y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:40});
     }
   }
@@ -127,40 +125,41 @@ function updateParticles(){
 function eatFood(s){
   for(let i=foods.length-1;i>=0;i--){
     let f=foods[i];
-    if(dist2(s.body[0],f)>20000) continue;
+    if(dist2(s.body[0],f)>20000) continue; // 範圍外不計算
     let d=dist(s.body[0],f);
     if(d<120){f.x+=(s.body[0].x-f.x)/15;f.y+=(s.body[0].y-f.y)/15;}
-    if(d<10){s.length+=12; exp+=5; explode(f.x,f.y); foods.splice(i,1); spawnFood(); spawnFood();}
+    if(d<10){s.length+=12; exp+=5; explode(f.x,f.y); foods.splice(i,1); 
+      for(let j=0;j<2;j++) spawnFood(); // 分批生成
+    }
   }
 }
 
-// 標記死亡，統一處理
-function markDeath(s){if(!toDie.includes(s)) toDie.push(s);}
+// 標記死亡
+function markDeath(s){if(!toDie.includes(s)) toDie.push({snake:s,dropIndex:0});}
 
-// 死亡處理
+// 死亡處理（分批掉落食物）
 function processDeath(){
-  for(let s of toDie){
-    explode(s.body[0].x,s.body[0].y);
-    let bodyCopy = s.body.slice();
-    s.body=[];
-    for(let p of bodyCopy){spawnFood(p.x+(Math.random()-0.5)*10,p.y+(Math.random()-0.5)*10);}
-    if(s===player){player.body=[{x:0,y:0}];player.length=100; exp=0;}
-    else{let idx=ai.indexOf(s); if(idx!=-1) ai.splice(idx,1); aiRespawnQueue.push(120);}
+  for(let i=toDie.length-1;i>=0;i--){
+    let info=toDie[i],s=info.snake;
+    if(info.dropIndex<s.body.length){
+      for(let j=0;j<3 && info.dropIndex<s.body.length;j++,info.dropIndex++){
+        let p=s.body[info.dropIndex];
+        spawnFood(p.x+(Math.random()-0.5)*10,p.y+(Math.random()-0.5)*10);
+      }
+    } else {
+      if(s===player){player.body=[{x:0,y:0}];player.length=100; exp=0;}
+      else{let idx=ai.indexOf(s); if(idx!=-1) ai.splice(idx,1); aiRespawnQueue.push(120);}
+      toDie.splice(i,1);
+    }
   }
-  toDie=[];
 }
 
 // 碰撞檢查
 function checkDeath(s){
   let h=s.body[0];
   if(h.x<-MAP||h.x>MAP||h.y<-MAP||h.y>MAP){markDeath(s); return;}
-  // 撞自己
   for(let i=5;i<s.body.length;i++){if(dist2(h,s.body[i])<64){markDeath(s); return;}}
-  // 撞其他
-  for(let other of [player,...ai]){
-    if(other===s) continue;
-    for(let p of other.body){if(dist2(h,p)<64){markDeath(s); return;}}
-  }
+  for(let other of [player,...ai]){if(other===s) continue; for(let p of other.body){if(dist2(h,p)<64){markDeath(s); return;}}}
 }
 
 // AI大腦
@@ -178,7 +177,7 @@ function playerControl(){
   if(keys["Shift"]) player.length-=0.2;
 }
 
-// 鏡頭跟隨
+// 鏡頭
 function cameraUpdate(){camera.x=player.body[0].x-canvas.width/2; camera.y=player.body[0].y-canvas.height/2;}
 
 // 排行榜
@@ -205,8 +204,7 @@ function loop(){
   drawSnake(player); for(let s of ai) drawSnake(s);
   updateParticles(); cameraUpdate(); leaderboard();
 
-  // 統一處理死亡
-  processDeath();
+  processDeath(); // 分批死亡掉落
 
   // AI重生計時
   for(let i=aiRespawnQueue.length-1;i>=0;i--){aiRespawnQueue[i]--; if(aiRespawnQueue[i]<=0){spawnAI(); aiRespawnQueue.splice(i,1);}}
@@ -219,7 +217,7 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
-// 事件監聽
+// 事件
 addEventListener("mousemove",e=>{mouse.x=e.clientX; mouse.y=e.clientY;});
 addEventListener("keydown",e=>keys[e.key]=true);
 addEventListener("keyup",e=>keys[e.key]=false);
