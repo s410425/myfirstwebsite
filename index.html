@@ -2,18 +2,10 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>單機 Snake.io 完整版</title>
+<title>Snake.io 單機升級版</title>
 <style>
-body{
-    margin:0;
-    overflow:hidden;
-    background:#111;
-    color:white;
-    font-family:sans-serif;
-}
-canvas{
-    display:block;
-}
+body{margin:0;overflow:hidden;background:#111;color:white;font-family:sans-serif;}
+canvas{display:block;}
 #rank{
     position:absolute;
     top:10px;
@@ -43,25 +35,20 @@ let keys={}
 let mouse={x:canvas.width/2,y:canvas.height/2}
 
 // 玩家蛇
-let player={
-    body:[{x:0,y:0}],
-    dir:{x:1,y:0},
-    length:150,
-    speed:2,
-    color:"lime"
-}
+let player={body:[{x:0,y:0}],dir:{x:1,y:0},length:150,speed:2,color:"lime"}
 
-// 生成食物
+// 食物物件新增壽命屬性
 function spawnFood(){
     foods.push({
         x:(Math.random()-0.5)*4000,
         y:(Math.random()-0.5)*4000,
-        r:5
+        r:5,
+        life:20 // 幀數
     })
 }
 for(let i=0;i<200;i++) spawnFood()
 
-// 生成AI
+// AI
 function spawnAI(){
     aiSnakes.push({
         body:[{x:(Math.random()-0.5)*2000,y:(Math.random()-0.5)*2000}],
@@ -74,9 +61,7 @@ function spawnAI(){
 for(let i=0;i<20;i++) spawnAI()
 
 // 距離
-function dist(a,b){
-    return Math.hypot(a.x-b.x,a.y-b.y)
-}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
 
 // 移動蛇
 function moveSnake(s){
@@ -116,27 +101,40 @@ function drawFood(f){
     ctx.fill()
 }
 
-// 吃食物
+// 吃食物 (靠近範圍就吸收)
 function eatFood(s){
     for(let i=foods.length-1;i>=0;i--){
-        if(dist(s.body[0],foods[i])<12){
+        let f=foods[i]
+        // 吸收範圍 80
+        if(dist(s.body[0],f)<80){
+            // 食物被吸向蛇頭
+            let dx = s.body[0].x - f.x
+            let dy = s.body[0].y - f.y
+            let l = Math.hypot(dx,dy)
+            f.x += (dx/l)*2
+            f.y += (dy/l)*2
+        }
+        // 如果靠近蛇頭就吃掉
+        if(dist(s.body[0],f)<12){
             s.length+=10
             foods.splice(i,1)
             spawnFood()
+        }else{
+            // 每幀減少壽命
+            f.life--
+            if(f.life<=0) foods.splice(i,1)
         }
     }
 }
 
 // AI邏輯
 function aiBrain(ai){
+    if(foods.length===0) return
     let target=foods[0]
     let best=999999
     for(let f of foods){
         let d=dist(ai.body[0],f)
-        if(d<best){
-            best=d
-            target=f
-        }
+        if(d<best){best=d; target=f}
     }
     let dx=target.x-ai.body[0].x
     let dy=target.y-ai.body[0].y
@@ -148,7 +146,7 @@ function aiBrain(ai){
 // 蛇死亡變食物
 function snakeDie(s){
     for(let p of s.body){
-        foods.push({x:p.x,y:p.y,r:5})
+        foods.push({x:p.x,y:p.y,r:5,life:20})
     }
 }
 
@@ -156,9 +154,7 @@ function snakeDie(s){
 function checkSnakeCollision(snake, others){
     for(let other of others){
         for(let i=0;i<other.body.length;i++){
-            if(dist(snake.body[0],other.body[i])<10){
-                return true
-            }
+            if(dist(snake.body[0],other.body[i])<10) return true
         }
     }
     return false
@@ -175,14 +171,14 @@ function leaderboard(){
     document.getElementById("rank").innerHTML=txt
 }
 
-// 玩家控制（滑鼠+Shift加速）
+// 玩家控制（滑鼠 + 加速）
 function playerControl(){
-    let sp=keys["Shift"]?4:2
+    let sp=keys["Shift"]?6:4 // 更快加速
     player.speed=sp
     let dx=mouse.x+camera.x-player.body[0].x
     let dy=mouse.y+camera.y-player.body[0].y
     let len=Math.hypot(dx,dy)
-    if(len>0){ player.dir.x=dx/len; player.dir.y=dy/len }
+    if(len>0){player.dir.x=dx/len; player.dir.y=dy/len}
     if(keys["ArrowUp"]) player.dir={x:0,y:-1}
     if(keys["ArrowDown"]) player.dir={x:0,y:1}
     if(keys["ArrowLeft"]) player.dir={x:-1,y:0}
@@ -202,20 +198,17 @@ function game(){
     moveSnake(player)
     eatFood(player)
 
-    // 玩家碰撞AI
-    if(checkSnakeCollision(player, aiSnakes)){
+    if(checkSnakeCollision(player,aiSnakes)){
         snakeDie(player)
         alert("你死了")
         location.reload()
     }
 
-    // AI更新
     for(let i=aiSnakes.length-1;i>=0;i--){
         let ai=aiSnakes[i]
         aiBrain(ai)
         moveSnake(ai)
         eatFood(ai)
-        // AI碰撞玩家或自己
         if(checkSnakeCollision(ai,[player,...aiSnakes.filter((_,idx)=>idx!==i)])){
             snakeDie(ai)
             aiSnakes.splice(i,1)
@@ -228,18 +221,17 @@ function game(){
     foods.forEach(drawFood)
     updateCamera()
     leaderboard()
-
     requestAnimationFrame(game)
 }
 
-// 監聽鍵盤/滑鼠
+// 監聽
 document.addEventListener("keydown",e=>keys[e.key]=true)
 document.addEventListener("keyup",e=>keys[e.key]=false)
-canvas.addEventListener("mousemove", e => {mouse.x=e.clientX; mouse.y=e.clientY})
+canvas.addEventListener("mousemove",e=>{mouse.x=e.clientX; mouse.y=e.clientY})
 
-// 啟動遊戲
+// 開始
 game()
-</script>
 
+</script>
 </body>
 </html>
