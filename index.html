@@ -2,145 +2,551 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 完整單機版</title>
+<title>Snake.io Offline</title>
+
 <style>
-body{margin:0;overflow:hidden;background:#111;font-family:sans-serif;}
-canvas{display:block;}
-#rank{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);padding:8px;border-radius:8px;font-size:14px;}
-#menu{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;justify-content:center;align-items:center;}
-button{font-size:24px;margin:10px;padding:12px 28px;border:none;border-radius:8px;cursor:pointer;background:#444;color:#fff;}
-button:hover{background:#666;}
-#minimap{position:absolute;bottom:12px;right:12px;width:160px;height:160px;background:rgba(0,0,0,0.6);border-radius:8px;}
-#expBar{position:absolute;bottom:12px;left:12px;width:320px;height:22px;background:rgba(255,255,255,0.2);border-radius:8px;}
-#expFill{width:0%;height:100%;background:lime;border-radius:8px;}
+body{
+margin:0;
+overflow:hidden;
+background:#111;
+font-family:sans-serif;
+}
+
+canvas{
+display:block;
+}
+
+#menu{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.9);
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+color:white;
+}
+
+button{
+font-size:24px;
+padding:12px 30px;
+border:none;
+border-radius:10px;
+background:#444;
+color:white;
+cursor:pointer;
+}
+
+button:hover{
+background:#666;
+}
+
+#expBar{
+position:absolute;
+bottom:15px;
+left:15px;
+width:300px;
+height:20px;
+background:#333;
+border-radius:10px;
+overflow:hidden;
+}
+
+#exp{
+height:100%;
+width:0%;
+background:lime;
+}
+
+#rank{
+position:absolute;
+top:10px;
+right:10px;
+background:rgba(0,0,0,0.5);
+padding:10px;
+border-radius:10px;
+color:white;
+font-size:14px;
+}
 </style>
 </head>
+
+
 <body>
-<canvas id="game"></canvas>
-<div id="rank"></div>
+
 <div id="menu">
-<h1>Snake.io 完整版</h1>
-<button id="startBtn">開始遊戲</button>
-<button id="infoBtn">說明</button>
+<h1>Snake.io 單機版</h1>
+<button onclick="start()">開始遊戲</button>
 </div>
-<div id="minimap"></div>
-<div id="expBar"><div id="expFill"></div></div>
+
+<div id="expBar"><div id="exp"></div></div>
+<div id="rank"></div>
+
+<canvas id="c"></canvas>
 
 <script>
-// ================== 基本設置 ==================
-const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
-canvas.width=window.innerWidth; canvas.height=window.innerHeight;
-let camera={x:0,y:0},foods=[],aiSnakes=[],keys={},mouse={x:canvas.width/2,y:canvas.height/2},particles=[];
-let gameStarted=false,exp=0,expMax=100;
 
-// ================== 玩家蛇 ==================
-let player={body:[{x:0,y:0}],dir:{x:1,y:0},length:150,speed:2,colorStart:'lime',colorEnd:'yellow'};
+const canvas=document.getElementById("c")
+const ctx=canvas.getContext("2d")
 
-// ================== 工具函式 ==================
-function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
-function lerp(a,b,t){return a+(b-a)*t;}
-function checkCollision(a,b,r){return dist(a,b)<r;}
+canvas.width=window.innerWidth
+canvas.height=window.innerHeight
 
-// ================== AI生成 ==================
-function spawnAI(x=0,y=0){
-    if(x===0&&y===0){
-        let safe=false;
-        while(!safe){
-            x=(Math.random()-0.5)*2500;
-            y=(Math.random()-0.5)*2500;
-            if(dist({x,y},player.body[0])>250) safe=true;
-        }
-    }
-    aiSnakes.push({body:[{x,y}],dir:{x:Math.random()-0.5,y:Math.random()-0.5},length:150,speed:2,
-        colorStart:`hsl(${Math.random()*360},70%,50%)`,colorEnd:`hsl(${Math.random()*360},70%,70%)`});
+let started=false
+
+let camera={x:0,y:0}
+
+let mouse={x:0,y:0}
+
+let foods=[]
+let particles=[]
+let aiSnakes=[]
+
+let keys={}
+
+let exp=0
+let expMax=100
+
+const worldSize=4000
+
+
+const player={
+body:[{x:0,y:0}],
+dir:{x:1,y:0},
+length:120,
+speed:3,
+color1:"lime",
+color2:"yellow"
 }
-for(let i=0;i<30;i++) spawnAI();
 
-// ================== 食物生成 ==================
-function spawnFood(x=0,y=0){if(x===0&&y===0){x=(Math.random()-0.5)*4000;y=(Math.random()-0.5)*4000;}foods.push({x,y,r:5,life:600});}
-for(let i=0;i<450;i++) spawnFood();
 
-// ================== 移動與蛇身 ==================
-function moveSnake(s){const head={x:s.body[0].x+s.dir.x*s.speed,y:s.body[0].y+s.dir.y*s.speed};s.body.unshift(head);
-let len=0; for(let i=0;i<s.body.length-1;i++){len+=dist(s.body[i],s.body[i+1]);if(len>s.length){s.body=s.body.slice(0,i+2);break;}}}
+function start(){
+started=true
+document.getElementById("menu").style.display="none"
+loop()
+}
 
-// ================== 畫蛇 ==================
+
+function dist(a,b){
+return Math.hypot(a.x-b.x,a.y-b.y)
+}
+
+
+
+function spawnFood(x,y){
+
+if(x===undefined){
+x=(Math.random()-0.5)*worldSize
+y=(Math.random()-0.5)*worldSize
+}
+
+foods.push({
+x:x,
+y:y,
+life:2000
+})
+
+}
+
+
+
+for(let i=0;i<500;i++) spawnFood()
+
+
+
+function spawnAI(){
+
+let x
+let y
+
+while(true){
+
+x=(Math.random()-0.5)*worldSize
+y=(Math.random()-0.5)*worldSize
+
+if(dist({x,y},player.body[0])>300) break
+
+}
+
+aiSnakes.push({
+
+body:[{x:x,y:y}],
+dir:{x:Math.random()-0.5,y:Math.random()-0.5},
+length:120,
+speed:2.5,
+color1:`hsl(${Math.random()*360},70%,50%)`,
+color2:`hsl(${Math.random()*360},70%,70%)`
+
+})
+
+}
+
+
+
+for(let i=0;i<30;i++) spawnAI()
+
+
+
+function moveSnake(s){
+
+const head={
+x:s.body[0].x+s.dir.x*s.speed,
+y:s.body[0].y+s.dir.y*s.speed
+}
+
+s.body.unshift(head)
+
+let len=0
+
+for(let i=0;i<s.body.length-1;i++){
+
+len+=dist(s.body[i],s.body[i+1])
+
+if(len>s.length){
+
+s.body=s.body.slice(0,i+2)
+break
+
+}
+
+}
+
+}
+
+
+
 function drawSnake(s){
-    if(s.body.length<2)return;
-    ctx.lineWidth=12; ctx.lineJoin='round'; ctx.lineCap='round';
-    let gradient=ctx.createLinearGradient(s.body[0].x-camera.x,s.body[0].y-camera.y,s.body[s.body.length-1].x-camera.x,s.body[s.body.length-1].y-camera.y);
-    gradient.addColorStop(0,s.colorStart); gradient.addColorStop(1,s.colorEnd);
-    ctx.strokeStyle=gradient;
-    ctx.beginPath(); ctx.moveTo(s.body[0].x-camera.x,s.body[0].y-camera.y);
-    for(let i=1;i<s.body.length;i++) ctx.lineTo(s.body[i].x-camera.x,s.body[i].y-camera.y);
-    ctx.stroke();
-    // 蛇頭眼睛
-    let head=s.body[0],eyeOffsetX=s.dir.x*6,eyeOffsetY=s.dir.y*6;
-    ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(head.x-camera.x+eyeOffsetX,head.y-camera.y+eyeOffsetY,3,0,Math.PI*2);ctx.fill();
-    ctx.beginPath(); ctx.arc(head.x-camera.x+eyeOffsetX,head.y-camera.y+eyeOffsetY,1,0,Math.PI*2);ctx.fillStyle='black';ctx.fill();
+
+ctx.lineWidth=12
+ctx.lineJoin="round"
+ctx.lineCap="round"
+
+let g=ctx.createLinearGradient(
+
+s.body[0].x-camera.x,
+s.body[0].y-camera.y,
+
+s.body[s.body.length-1].x-camera.x,
+s.body[s.body.length-1].y-camera.y
+
+)
+
+g.addColorStop(0,s.color1)
+g.addColorStop(1,s.color2)
+
+ctx.strokeStyle=g
+
+ctx.beginPath()
+
+ctx.moveTo(
+s.body[0].x-camera.x,
+s.body[0].y-camera.y
+)
+
+for(let i=1;i<s.body.length;i++){
+
+ctx.lineTo(
+s.body[i].x-camera.x,
+s.body[i].y-camera.y
+)
+
 }
 
-// ================== 畫食物 ==================
-function drawFood(f){let g=ctx.createRadialGradient(f.x-camera.x,f.y-camera.y,0,f.x-camera.x,f.y-camera.y,10);g.addColorStop(0,"#fff");g.addColorStop(1,"red");ctx.fillStyle=g;ctx.beginPath();ctx.arc(f.x-camera.x,f.y-camera.y,f.r,0,Math.PI*2);ctx.fill();}
+ctx.stroke()
 
-// ================== 粒子效果 ==================
-function addParticles(x,y,color,count=10){for(let i=0;i<count;i++)particles.push({x,y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:30,color});}
-function updateParticles(){for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.x+=p.vx;p.y+=p.vy;p.life--;ctx.globalAlpha=p.life/30;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x-camera.x,p.y-camera.y,2,0,Math.PI*2);ctx.fill();if(p.life<=0)particles.splice(i,1);}ctx.globalAlpha=1;}
+}
 
-// ================== 吃食物與經驗 ==================
+
+
+function drawFood(f){
+
+ctx.fillStyle="red"
+
+ctx.beginPath()
+
+ctx.arc(
+f.x-camera.x,
+f.y-camera.y,
+4,
+0,
+Math.PI*2
+)
+
+ctx.fill()
+
+}
+
+
+
 function eatFood(s){
-for(let i=foods.length-1;i>=0;i--){let f=foods[i];let d=dist(s.body[0],f);
-if(d<100){let dx=s.body[0].x-f.x,dy=s.body[0].y-f.y;let attractSpeed=(100-d)/50;f.x+=(dx/d)*attractSpeed;f.y+=(dy/d)*attractSpeed;}
-if(d<12){s.length+=15;exp+=5;addParticles(f.x,f.y,'red',20);foods.splice(i,1);spawnFood();spawnFood();}
-else{f.life--;if(f.life<=0)foods.splice(i,1);}}
-if(exp>=expMax){exp=0;s.length+=20;}
-document.getElementById("expFill").style.width=(exp/expMax*100)+"%";}
 
-// ================== 死亡判定 ==================
+for(let i=foods.length-1;i>=0;i--){
+
+let f=foods[i]
+
+let d=dist(s.body[0],f)
+
+
+if(d<120){
+
+f.x+=(s.body[0].x-f.x)/20
+f.y+=(s.body[0].y-f.y)/20
+
+}
+
+
+if(d<10){
+
+s.length+=10
+
+exp+=5
+
+addParticles(f.x,f.y)
+
+foods.splice(i,1)
+
+spawnFood()
+spawnFood()
+
+}
+
+}
+
+}
+
+
+
+function addParticles(x,y){
+
+for(let i=0;i<10;i++){
+
+particles.push({
+
+x:x,
+y:y,
+vx:(Math.random()-0.5)*4,
+vy:(Math.random()-0.5)*4,
+life:30
+
+})
+
+}
+
+}
+
+
+
+function updateParticles(){
+
+for(let i=particles.length-1;i>=0;i--){
+
+let p=particles[i]
+
+p.x+=p.vx
+p.y+=p.vy
+
+p.life--
+
+ctx.globalAlpha=p.life/30
+
+ctx.fillStyle="orange"
+
+ctx.beginPath()
+
+ctx.arc(p.x-camera.x,p.y-camera.y,2,0,Math.PI*2)
+
+ctx.fill()
+
+ctx.globalAlpha=1
+
+if(p.life<=0) particles.splice(i,1)
+
+}
+
+}
+
+
+
 function checkDeath(s){
-    for(let i=5;i<s.body.length;i++){
-        if(dist(s.body[0],s.body[i])<8){s.length=50;exp=0;return;}
-    }
-    for(let other of aiSnakes){
-        if(other===s) continue;
-        for(let p of other.body){
-            if(dist(s.body[0],p)<8){s.length=50;exp=0;return;}
-        }
-    }
+
+for(let i=5;i<s.body.length;i++){
+
+if(dist(s.body[0],s.body[i])<8){
+
+s.length=60
+exp=0
+
 }
 
-// ================== AI邏輯 ==================
-function aiBrain(ai){if(!ai.body.length)return;let head=ai.body[0];let threat={x:0,y:0,count:0};
-for(let s of [player,...aiSnakes]){if(s===ai)continue;let d=dist(head,s.body[0]);if(s.length>ai.length&&d<80){threat.x+=(head.x-s.body[0].x)/d;threat.y+=(head.y-s.body[0].y)/d;threat.count++;}}
-if(threat.count>0){ai.dir.x=threat.x/threat.count;ai.dir.y=threat.y/threat.count;return;}
-if(foods.length>0){let target=foods[0],minD=dist(head,foods[0]);for(let f of foods){let d=dist(head,f);if(d<minD){minD=d;target=f;}}let dx=target.x-head.x,dy=target.y-head.y,l=Math.hypot(dx,dy);ai.dir.x=dx/l;ai.dir.y=dy/l;}
-else{ai.dir.x+=(Math.random()-0.5)*0.1;ai.dir.y+=(Math.random()-0.5)*0.1;let l=Math.hypot(ai.dir.x,ai.dir.y);ai.dir.x/=l;ai.dir.y/=l;}}
-
-// ================== 主循環 ==================
-function update(){
-if(!gameStarted)return;
-playerControl();
-moveSnake(player);eatFood(player);checkDeath(player);
-updateParticles();updateCamera();
-for(let ai of aiSnakes){aiBrain(ai);moveSnake(ai);eatFood(ai);checkDeath(ai);}
-leaderboard();render();requestAnimationFrame(update);
 }
-function render(){ctx.clearRect(0,0,canvas.width,canvas.height);for(let f of foods)drawFood(f);drawSnake(player);for(let ai of aiSnakes)drawSnake(ai);}
 
-// ================== 玩家控制 ==================
-function playerControl(){let sp=keys["Shift"]?6:4;player.speed=sp;let dx=mouse.x+camera.x-player.body[0].x,dy=mouse.y+camera.y-player.body[0].y,l=Math.hypot(dx,dy);if(l>0){player.dir.x=dx/l;player.dir.y=dy/l;}}
+for(let other of aiSnakes){
 
-// ================== 相機 ==================
-function updateCamera(){camera.x=player.body[0].x-canvas.width/2;camera.y=player.body[0].y-canvas.height/2;}
+for(let p of other.body){
 
-// ================== 排行榜 ==================
-function leaderboard(){let all=[player,...aiSnakes];all.sort((a,b)=>b.length-a.length);let txt="排行榜<br>";for(let i=0;i<5;i++){txt+=`${i+1}. ${Math.floor(all[i].length)}<br>`;}document.getElementById("rank").innerHTML=txt;}
+if(dist(s.body[0],p)<8){
 
-// ================== 事件 ==================
-document.addEventListener('keydown',e=>keys[e.key]=true);
-document.addEventListener('keyup',e=>keys[e.key]=false);
-canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;});
-document.getElementById("startBtn").addEventListener('click',()=>{gameStarted=true;document.getElementById("menu").style.display='none';update();});
+s.length=60
+exp=0
+
+}
+
+}
+
+}
+
+}
+
+
+
+function aiBrain(ai){
+
+let head=ai.body[0]
+
+let target=null
+let best=999999
+
+
+for(let f of foods){
+
+let d=dist(head,f)
+
+if(d<best){
+
+best=d
+target=f
+
+}
+
+}
+
+
+if(target){
+
+let dx=target.x-head.x
+let dy=target.y-head.y
+
+let l=Math.hypot(dx,dy)
+
+ai.dir.x=dx/l
+ai.dir.y=dy/l
+
+}
+
+}
+
+
+
+function playerControl(){
+
+let dx=mouse.x+camera.x-player.body[0].x
+let dy=mouse.y+camera.y-player.body[0].y
+
+let l=Math.hypot(dx,dy)
+
+player.dir.x=dx/l
+player.dir.y=dy/l
+
+player.speed=keys["Shift"]?5:3
+
+}
+
+
+
+function updateCamera(){
+
+camera.x=player.body[0].x-canvas.width/2
+camera.y=player.body[0].y-canvas.height/2
+
+}
+
+
+
+function leaderboard(){
+
+let all=[player,...aiSnakes]
+
+all.sort((a,b)=>b.length-a.length)
+
+let text="排行榜<br>"
+
+for(let i=0;i<5;i++){
+
+text+=`${i+1}. ${Math.floor(all[i].length)}<br>`
+
+}
+
+document.getElementById("rank").innerHTML=text
+
+}
+
+
+
+function loop(){
+
+if(!started) return
+
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+playerControl()
+
+moveSnake(player)
+
+eatFood(player)
+
+checkDeath(player)
+
+
+for(let ai of aiSnakes){
+
+aiBrain(ai)
+
+moveSnake(ai)
+
+eatFood(ai)
+
+}
+
+
+for(let f of foods) drawFood(f)
+
+drawSnake(player)
+
+for(let ai of aiSnakes) drawSnake(ai)
+
+updateParticles()
+
+updateCamera()
+
+leaderboard()
+
+
+exp%=expMax
+
+document.getElementById("exp").style.width=(exp/expMax*100)+"%"
+
+requestAnimationFrame(loop)
+
+}
+
+
+
+document.addEventListener("mousemove",e=>{
+mouse.x=e.clientX
+mouse.y=e.clientY
+})
+
+document.addEventListener("keydown",e=>{
+keys[e.key]=true
+})
+
+document.addEventListener("keyup",e=>{
+keys[e.key]=false
+})
+
 </script>
 </body>
 </html>
