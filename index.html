@@ -2,310 +2,243 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io Offline</title>
-
+<title>單機 Snake.io 完整版</title>
 <style>
 body{
-margin:0;
-background:#111;
-color:white;
-font-family:sans-serif;
-overflow:hidden;
+    margin:0;
+    overflow:hidden;
+    background:#111;
+    color:white;
+    font-family:sans-serif;
 }
-
+canvas{
+    display:block;
+}
 #rank{
-position:absolute;
-top:10px;
-right:10px;
-background:rgba(0,0,0,0.5);
-padding:10px;
-border-radius:10px;
-font-size:14px;
+    position:absolute;
+    top:10px;
+    right:10px;
+    background:rgba(0,0,0,0.5);
+    padding:10px;
+    border-radius:10px;
+    font-size:14px;
 }
 </style>
-
 </head>
-
 <body>
 
 <canvas id="game"></canvas>
 <div id="rank"></div>
 
 <script>
-
 const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
-
 canvas.width=window.innerWidth
 canvas.height=window.innerHeight
 
 let camera={x:0,y:0}
-
 let foods=[]
 let aiSnakes=[]
 let keys={}
+let mouse={x:canvas.width/2,y:canvas.height/2}
 
+// 玩家蛇
 let player={
-body:[{x:0,y:0}],
-dir:{x:1,y:0},
-length:150,
-speed:2,
-color:"lime"
+    body:[{x:0,y:0}],
+    dir:{x:1,y:0},
+    length:150,
+    speed:2,
+    color:"lime"
 }
 
+// 生成食物
 function spawnFood(){
-
-foods.push({
-x:(Math.random()-0.5)*4000,
-y:(Math.random()-0.5)*4000,
-r:5
-})
-
+    foods.push({
+        x:(Math.random()-0.5)*4000,
+        y:(Math.random()-0.5)*4000,
+        r:5
+    })
 }
-
 for(let i=0;i<200;i++) spawnFood()
 
+// 生成AI
 function spawnAI(){
-
-aiSnakes.push({
-body:[{x:(Math.random()-0.5)*2000,y:(Math.random()-0.5)*2000}],
-dir:{x:Math.random()-0.5,y:Math.random()-0.5},
-length:150,
-speed:2,
-color:`hsl(${Math.random()*360},70%,50%)`
-})
-
+    aiSnakes.push({
+        body:[{x:(Math.random()-0.5)*2000,y:(Math.random()-0.5)*2000}],
+        dir:{x:Math.random()-0.5,y:Math.random()-0.5},
+        length:150,
+        speed:2,
+        color:`hsl(${Math.random()*360},70%,50%)`
+    })
 }
-
 for(let i=0;i<20;i++) spawnAI()
 
+// 距離
 function dist(a,b){
-
-return Math.hypot(a.x-b.x,a.y-b.y)
-
+    return Math.hypot(a.x-b.x,a.y-b.y)
 }
 
+// 移動蛇
 function moveSnake(s){
-
-const head={
-x:s.body[0].x+s.dir.x*s.speed,
-y:s.body[0].y+s.dir.y*s.speed
+    const head={x:s.body[0].x+s.dir.x*s.speed, y:s.body[0].y+s.dir.y*s.speed}
+    s.body.unshift(head)
+    let len=0
+    for(let i=0;i<s.body.length-1;i++){
+        len+=dist(s.body[i],s.body[i+1])
+        if(len>s.length){
+            s.body=s.body.slice(0,i+2)
+            break
+        }
+    }
 }
 
-s.body.unshift(head)
-
-let len=0
-
-for(let i=0;i<s.body.length-1;i++){
-
-len+=dist(s.body[i],s.body[i+1])
-
-if(len>s.length){
-
-s.body=s.body.slice(0,i+2)
-break
-
-}
-
-}
-
-}
-
+// 畫蛇
 function drawSnake(s){
-
-for(let i=0;i<s.body.length;i++){
-
-let p=s.body[i]
-
-ctx.globalAlpha=1-i/s.body.length
-
-ctx.fillStyle=s.color
-
-ctx.beginPath()
-
-ctx.arc(
-p.x-camera.x,
-p.y-camera.y,
-8,
-0,
-Math.PI*2
-)
-
-ctx.fill()
-
+    for(let i=0;i<s.body.length;i++){
+        let p=s.body[i]
+        ctx.globalAlpha=1-i/s.body.length
+        ctx.fillStyle=s.color
+        ctx.beginPath()
+        ctx.arc(p.x-camera.x,p.y-camera.y,8,0,Math.PI*2)
+        ctx.fill()
+    }
+    ctx.globalAlpha=1
 }
 
-ctx.globalAlpha=1
-
-}
-
+// 畫食物
 function drawFood(f){
-
-let g=ctx.createRadialGradient(
-f.x-camera.x,
-f.y-camera.y,
-0,
-f.x-camera.x,
-f.y-camera.y,
-10
-)
-
-g.addColorStop(0,"white")
-g.addColorStop(1,"red")
-
-ctx.fillStyle=g
-
-ctx.beginPath()
-
-ctx.arc(
-f.x-camera.x,
-f.y-camera.y,
-f.r,
-0,
-Math.PI*2
-)
-
-ctx.fill()
-
+    let g=ctx.createRadialGradient(f.x-camera.x,f.y-camera.y,0,f.x-camera.x,f.y-camera.y,10)
+    g.addColorStop(0,"#fff")
+    g.addColorStop(1,"red")
+    ctx.fillStyle=g
+    ctx.beginPath()
+    ctx.arc(f.x-camera.x,f.y-camera.y,f.r,0,Math.PI*2)
+    ctx.fill()
 }
 
+// 吃食物
 function eatFood(s){
-
-for(let i=foods.length-1;i>=0;i--){
-
-if(dist(s.body[0],foods[i])<12){
-
-s.length+=10
-
-foods.splice(i,1)
-
-spawnFood()
-
+    for(let i=foods.length-1;i>=0;i--){
+        if(dist(s.body[0],foods[i])<12){
+            s.length+=10
+            foods.splice(i,1)
+            spawnFood()
+        }
+    }
 }
 
-}
-
-}
-
+// AI邏輯
 function aiBrain(ai){
-
-let target=foods[0]
-let best=999999
-
-for(let f of foods){
-
-let d=dist(ai.body[0],f)
-
-if(d<best){
-
-best=d
-target=f
-
+    let target=foods[0]
+    let best=999999
+    for(let f of foods){
+        let d=dist(ai.body[0],f)
+        if(d<best){
+            best=d
+            target=f
+        }
+    }
+    let dx=target.x-ai.body[0].x
+    let dy=target.y-ai.body[0].y
+    let l=Math.hypot(dx,dy)
+    ai.dir.x=dx/l
+    ai.dir.y=dy/l
 }
 
-}
-
-let dx=target.x-ai.body[0].x
-let dy=target.y-ai.body[0].y
-
-let l=Math.hypot(dx,dy)
-
-ai.dir.x=dx/l
-ai.dir.y=dy/l
-
-}
-
+// 蛇死亡變食物
 function snakeDie(s){
-
-for(let p of s.body){
-
-foods.push({
-x:p.x,
-y:p.y,
-r:5
-})
-
+    for(let p of s.body){
+        foods.push({x:p.x,y:p.y,r:5})
+    }
 }
 
+// 蛇碰撞檢測
+function checkSnakeCollision(snake, others){
+    for(let other of others){
+        for(let i=0;i<other.body.length;i++){
+            if(dist(snake.body[0],other.body[i])<10){
+                return true
+            }
+        }
+    }
+    return false
 }
 
+// 排行榜
 function leaderboard(){
-
-let all=[player,...aiSnakes]
-
-all.sort((a,b)=>b.length-a.length)
-
-let txt="排行榜<br>"
-
-for(let i=0;i<5;i++){
-
-txt+=`${i+1}. ${Math.floor(all[i].length)}<br>`
-
+    let all=[player,...aiSnakes]
+    all.sort((a,b)=>b.length-a.length)
+    let txt="排行榜<br>"
+    for(let i=0;i<5;i++){
+        txt+=`${i+1}. ${Math.floor(all[i].length)}<br>`
+    }
+    document.getElementById("rank").innerHTML=txt
 }
 
-document.getElementById("rank").innerHTML=txt
-
-}
-
+// 玩家控制（滑鼠+Shift加速）
 function playerControl(){
-
-let sp=keys["Shift"]?4:2
-
-player.speed=sp
-
-if(keys["ArrowUp"]) player.dir={x:0,y:-1}
-if(keys["ArrowDown"]) player.dir={x:0,y:1}
-if(keys["ArrowLeft"]) player.dir={x:-1,y:0}
-if(keys["ArrowRight"]) player.dir={x:1,y:0}
-
+    let sp=keys["Shift"]?4:2
+    player.speed=sp
+    let dx=mouse.x+camera.x-player.body[0].x
+    let dy=mouse.y+camera.y-player.body[0].y
+    let len=Math.hypot(dx,dy)
+    if(len>0){ player.dir.x=dx/len; player.dir.y=dy/len }
+    if(keys["ArrowUp"]) player.dir={x:0,y:-1}
+    if(keys["ArrowDown"]) player.dir={x:0,y:1}
+    if(keys["ArrowLeft"]) player.dir={x:-1,y:0}
+    if(keys["ArrowRight"]) player.dir={x:1,y:0}
 }
 
+// 更新鏡頭
 function updateCamera(){
-
-camera.x=player.body[0].x-canvas.width/2
-camera.y=player.body[0].y-canvas.height/2
-
+    camera.x=player.body[0].x-canvas.width/2
+    camera.y=player.body[0].y-canvas.height/2
 }
 
+// 遊戲迴圈
 function game(){
+    ctx.clearRect(0,0,canvas.width,canvas.height)
+    playerControl()
+    moveSnake(player)
+    eatFood(player)
 
-ctx.clearRect(0,0,canvas.width,canvas.height)
+    // 玩家碰撞AI
+    if(checkSnakeCollision(player, aiSnakes)){
+        snakeDie(player)
+        alert("你死了")
+        location.reload()
+    }
 
-playerControl()
+    // AI更新
+    for(let i=aiSnakes.length-1;i>=0;i--){
+        let ai=aiSnakes[i]
+        aiBrain(ai)
+        moveSnake(ai)
+        eatFood(ai)
+        // AI碰撞玩家或自己
+        if(checkSnakeCollision(ai,[player,...aiSnakes.filter((_,idx)=>idx!==i)])){
+            snakeDie(ai)
+            aiSnakes.splice(i,1)
+            spawnAI()
+        }
+    }
 
-moveSnake(player)
+    drawSnake(player)
+    aiSnakes.forEach(drawSnake)
+    foods.forEach(drawFood)
+    updateCamera()
+    leaderboard()
 
-eatFood(player)
-
-for(let ai of aiSnakes){
-
-aiBrain(ai)
-
-moveSnake(ai)
-
-eatFood(ai)
-
+    requestAnimationFrame(game)
 }
 
-updateCamera()
-
-for(let f of foods) drawFood(f)
-
-drawSnake(player)
-
-for(let ai of aiSnakes) drawSnake(ai)
-
-leaderboard()
-
-requestAnimationFrame(game)
-
-}
-
+// 監聽鍵盤/滑鼠
 document.addEventListener("keydown",e=>keys[e.key]=true)
 document.addEventListener("keyup",e=>keys[e.key]=false)
+canvas.addEventListener("mousemove", e => {mouse.x=e.clientX; mouse.y=e.clientY})
 
+// 啟動遊戲
 game()
-
 </script>
 
 </body>
