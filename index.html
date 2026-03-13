@@ -2,23 +2,21 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 玩家專屬磁力版</title>
+<title>Snake.io 終極主宰版 (磁力 10x)</title>
 <style>
     body{margin:0;overflow:hidden;background:#050505;font-family:sans-serif;user-select:none}
     canvas{display:block}
     #ui-layer{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.8);padding:15px;border-radius:12px;border:1px solid #0f4;backdrop-filter:blur(5px);pointer-events:none}
-    #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:28px;font-weight:bold;text-shadow:0 0 15px #0f4;letter-spacing:3px}
+    #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:28px;font-weight:bold;text-shadow:0 0 15px #0f4}
     #menu{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;z-index:100}
     button{font-size:28px;padding:15px 70px;cursor:pointer;background:#0f4;border:none;border-radius:50px;font-weight:bold;margin-top:20px;transition:0.3s}
-    button:hover{transform:scale(1.1);box-shadow:0 0 30px #0f4}
 </style>
 </head>
 <body>
 
 <div id="menu">
-    <h1 style="color:#0f4">SNAKE MAGNET</h1>
-    <p style="color:#888">【玩家專屬】全圖無死角磁力：80x 長度</p>
-    <p style="color:#888">AI 不受引力影響，需靠操作獵殺</p>
+    <h1 style="color:#0f4">SNAKE MAGNET: 10X</h1>
+    <p style="color:#888">【玩家專屬】磁力範圍：10x 長度 | 【成長】無限制</p>
     <button onclick="start()">開始戰鬥</button>
 </div>
 
@@ -30,8 +28,8 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const MAP = 5000;
-const FOOD_MAX = 600;
-const AI_COUNT = 20;
+const FOOD_MAX = 650;
+const AI_COUNT = 25;
 
 let started = false;
 let camera = {x:0, y:0, zoom:1};
@@ -53,14 +51,16 @@ class Snake {
         this.dead = false;
     }
 
+    // 寬度上限鎖定 100px
     getWidth() {
-        return 15 + Math.sqrt(this.length) * 0.8;
+        let baseWidth = 15 + Math.sqrt(this.length) * 0.7;
+        return Math.min(100, baseWidth);
     }
 
     update() {
         if (this.dead) return;
         let boosting = (this.isPlayer && (keys["Shift"] || mouse.down)) && this.length > 200;
-        this.speed = boosting ? 9 : 4.5;
+        this.speed = boosting ? 8.5 : 4.5;
         if (boosting) this.length -= 0.6;
         this.length = Math.max(100, this.length);
 
@@ -85,10 +85,12 @@ class Snake {
         ctx.lineWidth = thickness;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
+        
         if (this.isPlayer) {
-            ctx.shadowBlur = 20 * camera.zoom;
+            ctx.shadowBlur = 15 * camera.zoom;
             ctx.shadowColor = "#0f4";
         }
+        
         ctx.beginPath();
         ctx.moveTo(toSX(this.body[0].x), toSY(this.body[0].y));
         for(let p of this.body) ctx.lineTo(toSX(p.x), toSY(p.y));
@@ -96,7 +98,7 @@ class Snake {
         ctx.shadowBlur = 0;
         
         ctx.fillStyle = "white";
-        let eyeOff = thickness * 0.4;
+        let eyeOff = thickness * 0.35;
         ctx.beginPath();
         ctx.arc(toSX(this.body[0].x + Math.cos(this.angle)*eyeOff), toSY(this.body[0].y + Math.sin(this.angle)*eyeOff), thickness * 0.2, 0, 7);
         ctx.fill();
@@ -109,9 +111,9 @@ function spawnFood(x, y, big = false, color = null) {
     foods.push({
         x: x ?? (Math.random() * MAP * 2 - MAP),
         y: y ?? (Math.random() * MAP * 2 - MAP),
-        val: big ? 50 : 15,
-        size: big ? 10 : 5,
-        color: color ?? `hsl(${Math.random() * 360}, 100%, 60%)`,
+        val: big ? 60 : 18,
+        size: big ? 11 : 6,
+        color: color ?? `hsl(${Math.random() * 360}, 100%, 65%)`,
         big: big
     });
 }
@@ -120,7 +122,7 @@ for(let i=0; i<FOOD_MAX; i++) spawnFood();
 function spawnAI() {
     let startLen = 150;
     if (player.length > 5000) startLen = player.length * 0.8;
-    ai.push(new Snake((Math.random()-0.5) * MAP * 2, (Math.random()-0.5) * MAP * 2, `hsl(${Math.random()*360}, 70%, 50%)`, false, startLen));
+    ai.push(new Snake((Math.random()-0.5) * MAP * 2, (Math.random()-0.5) * MAP * 2, `hsl(${Math.random()*360}, 70%, 55%)`, false, startLen));
 }
 for(let i=0; i<AI_COUNT; i++) spawnAI();
 
@@ -128,12 +130,12 @@ function loop() {
     if (!started) return;
     ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    let targetZoom = Math.max(0.1, 1.1 - (player.length / 10000));
-    camera.zoom += (targetZoom - camera.zoom) * 0.05;
+    let targetZoom = Math.max(0.08, 1.1 - (player.length / 15000));
+    camera.zoom += (targetZoom - camera.zoom) * 0.04;
     camera.x = player.body[0].x; camera.y = player.body[0].y;
 
-    // --- 【玩家專屬】磁力系統 (僅對食物有效) ---
-    let magnetRange = 80 * player.length;
+    // --- 【核心改動】玩家專屬 10x 磁力 ---
+    let magnetRange = 10 * player.length;
 
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
@@ -143,13 +145,13 @@ function loop() {
         if (distSq < magnetRange * magnetRange) {
             f.x += dx * 0.4; f.y += dy * 0.4;
             if (distSq < 1000) {
+                // 長度成長無遞減限制
                 player.length += f.val + (player.length * 0.02);
                 foods.splice(i, 1);
                 spawnFood();
             }
         }
         
-        // AI 正常進食判定
         ai.forEach(s => {
             let adx = s.body[0].x - f.x, ady = s.body[0].y - f.y;
             if (adx*adx + ady*ady < 600) {
@@ -159,7 +161,6 @@ function loop() {
         });
     }
 
-    // 3. 更新與碰撞
     player.angle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
     player.update();
     if (Math.abs(player.body[0].x) > MAP || Math.abs(player.body[0].y) > MAP) player.dead = true;
@@ -177,7 +178,7 @@ function loop() {
             if (other === s || other.dead) return;
             let h = s.body[0];
             let minDist = (s.getWidth() + other.getWidth()) * 0.45;
-            for (let j = 0; j < other.body.length; j += 6) {
+            for (let j = 0; j < other.body.length; j += 7) {
                 let dx = h.x - other.body[j].x, dy = h.y - other.body[j].y;
                 if (dx*dx + dy*dy < minDist * minDist) s.dead = true;
             }
@@ -185,7 +186,6 @@ function loop() {
         if (s.dead) toDie.push(s);
     });
 
-    // 玩家被撞判斷
     ai.forEach(other => {
         let minDist = (player.getWidth() + other.getWidth()) * 0.45;
         for (let j = 0; j < other.body.length; j += 4) {
@@ -196,7 +196,8 @@ function loop() {
 
     if (player.dead) { player = new Snake(0, 0, "#0f4", true); }
     toDie.forEach(s => {
-        for(let k=0; k<50; k++) spawnFood(s.body[0].x+(Math.random()-0.5)*200, s.body[0].y+(Math.random()-0.5)*200, true, s.color);
+        let count = Math.min(60, Math.floor(s.length/30));
+        for(let k=0; k<count; k++) spawnFood(s.body[0].x+(Math.random()-0.5)*200, s.body[0].y+(Math.random()-0.5)*200, true, s.color);
         ai.splice(ai.indexOf(s), 1); spawnAI();
     });
     toDie = [];
