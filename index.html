@@ -2,10 +2,11 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io Offline</title>
+<title>Snake.io</title>
 
 <style>
 body{margin:0;overflow:hidden;background:#111;font-family:sans-serif}
+
 canvas{display:block}
 
 #menu{
@@ -15,36 +16,19 @@ height:100%;
 background:#000c;
 display:flex;
 flex-direction:column;
-justify-content:center;
 align-items:center;
+justify-content:center;
 color:white
 }
 
 button{
-font-size:24px;
-padding:10px 30px;
+font-size:26px;
+padding:12px 40px;
 border:none;
 border-radius:10px;
 background:#555;
 color:white;
 cursor:pointer
-}
-
-#expBar{
-position:absolute;
-bottom:10px;
-left:10px;
-width:300px;
-height:18px;
-background:#333;
-border-radius:10px
-}
-
-#exp{
-height:100%;
-width:0%;
-background:lime;
-border-radius:10px
 }
 
 #rank{
@@ -56,6 +40,23 @@ padding:10px;
 border-radius:10px;
 color:white
 }
+
+#expBar{
+position:absolute;
+bottom:10px;
+left:10px;
+width:280px;
+height:18px;
+background:#333;
+border-radius:10px
+}
+
+#exp{
+height:100%;
+width:0%;
+background:lime;
+border-radius:10px
+}
 </style>
 </head>
 
@@ -66,8 +67,8 @@ color:white
 <button onclick="start()">開始遊戲</button>
 </div>
 
-<div id="expBar"><div id="exp"></div></div>
 <div id="rank"></div>
+<div id="expBar"><div id="exp"></div></div>
 
 <canvas id="game"></canvas>
 
@@ -79,19 +80,23 @@ const ctx=canvas.getContext("2d")
 canvas.width=innerWidth
 canvas.height=innerHeight
 
+const MAP=2000
+
 let started=false
 
 let camera={x:0,y:0}
 let foods=[]
 let ai=[]
 let particles=[]
-let keys={}
 let mouse={x:0,y:0}
+let keys={}
 
 let exp=0
 let expMax=100
 
-const WORLD=5000
+function dist(a,b){
+return Math.hypot(a.x-b.x,a.y-b.y)
+}
 
 const player={
 body:[{x:0,y:0}],
@@ -102,21 +107,20 @@ color1:"lime",
 color2:"yellow"
 }
 
-function dist(a,b){
-return Math.hypot(a.x-b.x,a.y-b.y)
-}
-
 function spawnFood(x,y){
 
 if(x==undefined){
-x=(Math.random()-0.5)*WORLD
-y=(Math.random()-0.5)*WORLD
+x=(Math.random()*MAP*2)-MAP
+y=(Math.random()*MAP*2)-MAP
 }
 
-foods.push({x,y})
+foods.push({
+x,y,
+life:2000
+})
 }
 
-for(let i=0;i<500;i++) spawnFood()
+for(let i=0;i<400;i++) spawnFood()
 
 function spawnAI(){
 
@@ -124,8 +128,8 @@ let x,y
 
 while(true){
 
-x=(Math.random()-0.5)*WORLD
-y=(Math.random()-0.5)*WORLD
+x=(Math.random()*MAP*2)-MAP
+y=(Math.random()*MAP*2)-MAP
 
 if(dist({x,y},player.body[0])>400) break
 }
@@ -158,10 +162,8 @@ for(let i=0;i<s.body.length-1;i++){
 len+=dist(s.body[i],s.body[i+1])
 
 if(len>s.length){
-
 s.body=s.body.slice(0,i+2)
 break
-
 }
 
 }
@@ -224,40 +226,6 @@ ctx.fill()
 
 }
 
-function eatFood(s){
-
-for(let i=foods.length-1;i>=0;i--){
-
-let f=foods[i]
-
-let d=dist(s.body[0],f)
-
-if(d<120){
-
-f.x+=(s.body[0].x-f.x)/15
-f.y+=(s.body[0].y-f.y)/15
-
-}
-
-if(d<10){
-
-s.length+=12
-
-exp+=5
-
-explode(f.x,f.y)
-
-foods.splice(i,1)
-
-spawnFood()
-spawnFood()
-
-}
-
-}
-
-}
-
 function explode(x,y){
 
 for(let i=0;i<12;i++){
@@ -308,6 +276,37 @@ if(p.life<=0) particles.splice(i,1)
 
 }
 
+function eatFood(s){
+
+for(let i=foods.length-1;i>=0;i--){
+
+let f=foods[i]
+
+let d=dist(s.body[0],f)
+
+if(d<120){
+f.x+=(s.body[0].x-f.x)/15
+f.y+=(s.body[0].y-f.y)/15
+}
+
+if(d<10){
+
+s.length+=12
+exp+=5
+
+explode(f.x,f.y)
+
+foods.splice(i,1)
+
+spawnFood()
+spawnFood()
+
+}
+
+}
+
+}
+
 function death(s){
 
 explode(s.body[0].x,s.body[0].y)
@@ -315,32 +314,45 @@ explode(s.body[0].x,s.body[0].y)
 for(let i=0;i<30;i++){
 
 spawnFood(
-s.body[0].x+(Math.random()-0.5)*60,
-s.body[0].y+(Math.random()-0.5)*60
+s.body[0].x+(Math.random()-0.5)*80,
+s.body[0].y+(Math.random()-0.5)*80
 )
 
 }
 
-s.length=80
+s.length=100
 exp=0
 
 }
 
 function checkDeath(s){
 
+let h=s.body[0]
+
+if(
+h.x<-MAP||
+h.x>MAP||
+h.y<-MAP||
+h.y>MAP
+){
+death(s)
+}
+
 for(let i=5;i<s.body.length;i++){
 
-if(dist(s.body[0],s.body[i])<8){
+if(dist(h,s.body[i])<8){
 death(s)
 }
 
 }
 
-for(let other of ai){
+for(let other of [player,...ai]){
+
+if(other===s) continue
 
 for(let p of other.body){
 
-if(dist(s.body[0],p)<8){
+if(dist(h,p)<8){
 death(s)
 }
 
@@ -355,7 +367,7 @@ function aiBrain(s){
 let head=s.body[0]
 
 let best
-let bd=99999
+let bd=999999
 
 for(let f of foods){
 
@@ -414,9 +426,7 @@ all.sort((a,b)=>b.length-a.length)
 let t="排行榜<br>"
 
 for(let i=0;i<5;i++){
-
 t+=`${i+1}. ${Math.floor(all[i].length)}<br>`
-
 }
 
 document.getElementById("rank").innerHTML=t
@@ -440,22 +450,30 @@ ctx.clearRect(0,0,canvas.width,canvas.height)
 playerControl()
 
 moveSnake(player)
-
 eatFood(player)
-
 checkDeath(player)
 
 for(let s of ai){
 
 aiBrain(s)
-
 moveSnake(s)
-
 eatFood(s)
+checkDeath(s)
 
 }
 
-for(let f of foods) drawFood(f)
+for(let f of foods){
+
+f.life--
+
+if(f.life<=0){
+spawnFood()
+f.life=2000
+}
+
+drawFood(f)
+
+}
 
 drawSnake(player)
 
@@ -471,6 +489,16 @@ exp%=expMax
 
 document.getElementById("exp").style.width=(exp/expMax*100)+"%"
 
+ctx.strokeStyle="white"
+ctx.lineWidth=3
+
+ctx.strokeRect(
+-MAP-camera.x,
+-MAP-camera.y,
+MAP*2,
+MAP*2
+)
+
 requestAnimationFrame(loop)
 
 }
@@ -484,6 +512,5 @@ addEventListener("keydown",e=>keys[e.key]=true)
 addEventListener("keyup",e=>keys[e.key]=false)
 
 </script>
-
 </body>
 </html>
