@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 可長時間穩定版</title>
+<title>Snake.io 穩定版</title>
 <style>
 body{margin:0;overflow:hidden;background:#111;font-family:sans-serif}
 canvas{display:block}
@@ -27,6 +27,8 @@ const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 canvas.width=innerWidth; canvas.height=innerHeight;
 const MAP=2000;
+const MAX_SNAKE_LENGTH=800; // 玩家與 AI 最大蛇長
+const FOOD_MAX=200; // 食物上限
 
 let started=false;
 let camera={x:0,y:0};
@@ -35,41 +37,35 @@ let mouse={x:0,y:0},keys={};
 let exp=0,expMax=100;
 let aiRespawnQueue=[],toDie=[];
 
-//距離平方
 function dist2(a,b){let dx=a.x-b.x,dy=a.y-b.y;return dx*dx+dy*dy}
 function dist(a,b){return Math.sqrt(dist2(a,b))}
 
 const player={body:[{x:0,y:0}],dir:{x:1,y:0},length:150,speed:3,color1:"lime",color2:"yellow"};
 
-// ---------- 食物邏輯 ----------
+// ---------- 食物 ----------
 
-const FOOD_MAX = 200;
-
-// 食物生成
 function spawnFood(x,y){
-  if(foods.length >= FOOD_MAX) return;
+  if(foods.length>=FOOD_MAX) return;
   if(x===undefined){x=(Math.random()*MAP*2)-MAP;y=(Math.random()*MAP*2)-MAP;}
   foods.push({x,y,life:2000});
 }
-// 初始化
 for(let i=0;i<120;i++) spawnFood();
 
-// 吃食物
 function eatFood(s){
   for(let i=foods.length-1;i>=0;i--){
     let f=foods[i];
     if(dist2(s.body[0],f)>20000) continue;
     let d=dist(s.body[0],f);
     if(d<120){
-      f.x+=(s.body[0].x-f.x)/15;
-      f.y+=(s.body[0].y-f.y)/15;
+      f.x+=(s.body[0].x-f.x)/15; f.y+=(s.body[0].y-f.y)/15;
     }
     if(d<10){
       s.length+=12;
+      if(s.length>MAX_SNAKE_LENGTH) s.length=MAX_SNAKE_LENGTH;
       exp+=5;
       explode(f.x,f.y);
       foods.splice(i,1);
-      spawnFood(); // 吃食物生成 1 顆
+      spawnFood();
     }
   }
 }
@@ -95,7 +91,7 @@ function spawnAI(){
 }
 for(let i=0;i<25;i++) spawnAI();
 
-// ---------- 移動 & 畫蛇 ----------
+// ---------- 移動與畫蛇 ----------
 function moveSnake(s){
   let head={x:s.body[0].x+s.dir.x*s.speed,y:s.body[0].y+s.dir.y*s.speed};
   s.body.unshift(head);
@@ -105,6 +101,7 @@ function moveSnake(s){
     if(len>s.length){s.body=s.body.slice(0,i+2);break;}
   }
 }
+
 function drawSnake(s){
   let h=s.body[0];
   if(h.x<camera.x-200||h.x>camera.x+canvas.width+200||h.y<camera.y-200||h.y>camera.y+canvas.height+200) return;
@@ -152,9 +149,9 @@ function processDeath(){
   for(let i=toDie.length-1;i>=0;i--){
     let info=toDie[i], s=info.snake;
     if(info.dropIndex<s.body.length){
-      let dropCount = Math.min(2, s.body.length - info.dropIndex);
-      for(let j=0;j<dropCount;j++, info.dropIndex++){
-        let p = s.body[info.dropIndex];
+      let dropCount=Math.min(2,s.body.length-info.dropIndex);
+      for(let j=0;j<dropCount;j++,info.dropIndex++){
+        let p=s.body[info.dropIndex];
         spawnFood(p.x+(Math.random()-0.5)*10,p.y+(Math.random()-0.5)*10);
       }
     } else {
@@ -231,7 +228,6 @@ function loop(){
 addEventListener("mousemove",e=>{mouse.x=e.clientX; mouse.y=e.clientY;});
 addEventListener("keydown",e=>keys[e.key]=true);
 addEventListener("keyup",e=>keys[e.key]=false);
-
 </script>
 </body>
 </html>
