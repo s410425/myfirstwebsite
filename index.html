@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 終極主宰版 (磁力 10x)</title>
+<title>Snake.io 磁力巔峰版 (Cap 125k)</title>
 <style>
     body{margin:0;overflow:hidden;background:#050505;font-family:sans-serif;user-select:none}
     canvas{display:block}
@@ -10,14 +10,16 @@
     #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:28px;font-weight:bold;text-shadow:0 0 15px #0f4}
     #menu{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;z-index:100}
     button{font-size:28px;padding:15px 70px;cursor:pointer;background:#0f4;border:none;border-radius:50px;font-weight:bold;margin-top:20px;transition:0.3s}
+    button:hover{transform:scale(1.1);box-shadow:0 0 30px #0f4}
 </style>
 </head>
 <body>
 
 <div id="menu">
-    <h1 style="color:#0f4">SNAKE MAGNET: 10X</h1>
-    <p style="color:#888">【玩家專屬】磁力範圍：10x 長度 | 【成長】無限制</p>
-    <button onclick="start()">開始戰鬥</button>
+    <h1 style="color:#0f4">SNAKE MAGNET: 125,000</h1>
+    <p style="color:#888">【玩家專屬】磁力：10x 長度 (上限 125,000)</p>
+    <p style="color:#888">長度無限成長 | 寬度上限 100px | 5000分啟動 AI 繼承</p>
+    <button onclick="start()">降臨戰場</button>
 </div>
 
 <div id="score-ui">SCORE: 150</div>
@@ -51,7 +53,6 @@ class Snake {
         this.dead = false;
     }
 
-    // 寬度上限鎖定 100px
     getWidth() {
         let baseWidth = 15 + Math.sqrt(this.length) * 0.7;
         return Math.min(100, baseWidth);
@@ -134,8 +135,8 @@ function loop() {
     camera.zoom += (targetZoom - camera.zoom) * 0.04;
     camera.x = player.body[0].x; camera.y = player.body[0].y;
 
-    // --- 【核心改動】玩家專屬 10x 磁力 ---
-    let magnetRange = 10 * player.length;
+    // --- 【磁力校準：10x 且上限 125,000】 ---
+    let magnetRange = Math.min(125000, 10 * player.length);
 
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
@@ -145,7 +146,6 @@ function loop() {
         if (distSq < magnetRange * magnetRange) {
             f.x += dx * 0.4; f.y += dy * 0.4;
             if (distSq < 1000) {
-                // 長度成長無遞減限制
                 player.length += f.val + (player.length * 0.02);
                 foods.splice(i, 1);
                 spawnFood();
