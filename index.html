@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 可長時間版本</title>
+<title>Snake.io 可長時間穩定版</title>
 <style>
 body{margin:0;overflow:hidden;background:#111;font-family:sans-serif}
 canvas{display:block}
@@ -35,20 +35,47 @@ let mouse={x:0,y:0},keys={};
 let exp=0,expMax=100;
 let aiRespawnQueue=[],toDie=[];
 
-// 距離平方
+//距離平方
 function dist2(a,b){let dx=a.x-b.x,dy=a.y-b.y;return dx*dx+dy*dy}
 function dist(a,b){return Math.sqrt(dist2(a,b))}
 
 const player={body:[{x:0,y:0}],dir:{x:1,y:0},length:150,speed:3,color1:"lime",color2:"yellow"};
 
+// ---------- 食物邏輯 ----------
+
+const FOOD_MAX = 200;
+
 // 食物生成
 function spawnFood(x,y){
+  if(foods.length >= FOOD_MAX) return;
   if(x===undefined){x=(Math.random()*MAP*2)-MAP;y=(Math.random()*MAP*2)-MAP;}
   foods.push({x,y,life:2000});
 }
-for(let i=0;i<400;i++) spawnFood();
+// 初始化
+for(let i=0;i<120;i++) spawnFood();
 
-// AI生成
+// 吃食物
+function eatFood(s){
+  for(let i=foods.length-1;i>=0;i--){
+    let f=foods[i];
+    if(dist2(s.body[0],f)>20000) continue;
+    let d=dist(s.body[0],f);
+    if(d<120){
+      f.x+=(s.body[0].x-f.x)/15;
+      f.y+=(s.body[0].y-f.y)/15;
+    }
+    if(d<10){
+      s.length+=12;
+      exp+=5;
+      explode(f.x,f.y);
+      foods.splice(i,1);
+      spawnFood(); // 吃食物生成 1 顆
+    }
+  }
+}
+
+// ---------- AI ----------
+
 function spawnAI(){
   let x,y;
   while(true){
@@ -68,7 +95,7 @@ function spawnAI(){
 }
 for(let i=0;i<25;i++) spawnAI();
 
-// 移動蛇
+// ---------- 移動 & 畫蛇 ----------
 function moveSnake(s){
   let head={x:s.body[0].x+s.dir.x*s.speed,y:s.body[0].y+s.dir.y*s.speed};
   s.body.unshift(head);
@@ -78,8 +105,6 @@ function moveSnake(s){
     if(len>s.length){s.body=s.body.slice(0,i+2);break;}
   }
 }
-
-// 畫蛇
 function drawSnake(s){
   let h=s.body[0];
   if(h.x<camera.x-200||h.x>camera.x+canvas.width+200||h.y<camera.y-200||h.y>camera.y+canvas.height+200) return;
@@ -92,7 +117,7 @@ function drawSnake(s){
   ctx.stroke();
 }
 
-// 畫食物
+// ---------- 食物畫圖 ----------
 function drawFood(f){
   if(f.x<camera.x-50||f.x>camera.x+canvas.width+50||f.y<camera.y-50||f.y>camera.y+canvas.height+50) return;
   ctx.fillStyle="red"; ctx.beginPath();
@@ -100,7 +125,7 @@ function drawFood(f){
   ctx.fill();
 }
 
-// 粒子爆炸
+// ---------- 粒子 ----------
 function explode(x,y){
   for(let i=0;i<12;i++){
     if(particles.length<200){
@@ -121,29 +146,15 @@ function updateParticles(){
   }
 }
 
-// 吃食物
-function eatFood(s){
-  for(let i=foods.length-1;i>=0;i--){
-    let f=foods[i];
-    if(dist2(s.body[0],f)>20000) continue; // 範圍外不計算
-    let d=dist(s.body[0],f);
-    if(d<120){f.x+=(s.body[0].x-f.x)/15;f.y+=(s.body[0].y-f.y)/15;}
-    if(d<10){s.length+=12; exp+=5; explode(f.x,f.y); foods.splice(i,1); 
-      for(let j=0;j<2;j++) spawnFood(); // 分批生成
-    }
-  }
-}
-
-// 標記死亡
+// ---------- 死亡 ----------
 function markDeath(s){if(!toDie.includes(s)) toDie.push({snake:s,dropIndex:0});}
-
-// 死亡處理（分批掉落食物）
 function processDeath(){
   for(let i=toDie.length-1;i>=0;i--){
-    let info=toDie[i],s=info.snake;
+    let info=toDie[i], s=info.snake;
     if(info.dropIndex<s.body.length){
-      for(let j=0;j<3 && info.dropIndex<s.body.length;j++,info.dropIndex++){
-        let p=s.body[info.dropIndex];
+      let dropCount = Math.min(2, s.body.length - info.dropIndex);
+      for(let j=0;j<dropCount;j++, info.dropIndex++){
+        let p = s.body[info.dropIndex];
         spawnFood(p.x+(Math.random()-0.5)*10,p.y+(Math.random()-0.5)*10);
       }
     } else {
@@ -154,7 +165,7 @@ function processDeath(){
   }
 }
 
-// 碰撞檢查
+// ---------- 碰撞 ----------
 function checkDeath(s){
   let h=s.body[0];
   if(h.x<-MAP||h.x>MAP||h.y<-MAP||h.y>MAP){markDeath(s); return;}
@@ -162,14 +173,14 @@ function checkDeath(s){
   for(let other of [player,...ai]){if(other===s) continue; for(let p of other.body){if(dist2(h,p)<64){markDeath(s); return;}}}
 }
 
-// AI大腦
+// ---------- AI大腦 ----------
 function aiBrain(s){
   let head=s.body[0],best,bd=999999;
   for(let f of foods){let d=dist(head,f); if(d<bd){bd=d; best=f;}}
   if(best){let dx=best.x-head.x, dy=best.y-head.y, l=Math.hypot(dx,dy); s.dir.x=dx/l; s.dir.y=dy/l;}
 }
 
-// 玩家控制
+// ---------- 玩家控制 ----------
 function playerControl(){
   let dx=mouse.x+camera.x-player.body[0].x, dy=mouse.y+camera.y-player.body[0].y, l=Math.hypot(dx,dy);
   player.dir.x=dx/l; player.dir.y=dy/l;
@@ -177,10 +188,10 @@ function playerControl(){
   if(keys["Shift"]) player.length-=0.2;
 }
 
-// 鏡頭
+// ---------- 鏡頭 ----------
 function cameraUpdate(){camera.x=player.body[0].x-canvas.width/2; camera.y=player.body[0].y-canvas.height/2;}
 
-// 排行榜
+// ---------- 排行榜 ----------
 function leaderboard(){
   let all=[player,...ai]; all.sort((a,b)=>b.length-a.length);
   let t="排行榜<br>";
@@ -188,10 +199,10 @@ function leaderboard(){
   document.getElementById("rank").innerHTML=t;
 }
 
-// 開始
+// ---------- 開始 ----------
 function start(){started=true; document.getElementById("menu").style.display="none"; loop();}
 
-// 主迴圈
+// ---------- 主迴圈 ----------
 function loop(){
   if(!started) return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -204,9 +215,8 @@ function loop(){
   drawSnake(player); for(let s of ai) drawSnake(s);
   updateParticles(); cameraUpdate(); leaderboard();
 
-  processDeath(); // 分批死亡掉落
+  processDeath();
 
-  // AI重生計時
   for(let i=aiRespawnQueue.length-1;i>=0;i--){aiRespawnQueue[i]--; if(aiRespawnQueue[i]<=0){spawnAI(); aiRespawnQueue.splice(i,1);}}
 
   exp%=expMax; document.getElementById("exp").style.width=(exp/expMax*100)+"%";
@@ -217,10 +227,11 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
-// 事件
+// ---------- 事件 ----------
 addEventListener("mousemove",e=>{mouse.x=e.clientX; mouse.y=e.clientY;});
 addEventListener("keydown",e=>keys[e.key]=true);
 addEventListener("keyup",e=>keys[e.key]=false);
+
 </script>
 </body>
 </html>
