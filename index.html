@@ -2,229 +2,242 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>平滑單機 Snake.io</title>
+<title>Advanced Snake.io</title>
 <style>
-body {
-    background-color: #111;
-    color: #fff;
-    font-family: Arial, sans-serif;
-    text-align: center;
-    margin: 0;
-    padding: 0;
+body{
+background:#111;
+color:white;
+text-align:center;
+font-family:Arial;
+margin:0;
 }
-#menu {
-    margin-top: 20px;
-    padding: 15px;
-    width: 250px;
-    margin-left: auto;
-    margin-right: auto;
-    border-radius: 8px;
-    background-color: #444;
+canvas{
+background:#0a0a0a;
+border:2px solid #555;
+margin-top:20px;
 }
-#menu button {
-    display: block;
-    width: 100%;
-    margin: 5px 0;
-    padding: 8px;
-    border-radius: 5px;
-    cursor: pointer;
-    background-color: #666;
-    color: #fff;
-    border: none;
-    font-weight: bold;
+#menu{
+margin-top:20px;
 }
-#menu button:hover {
-    background-color: #888;
-}
-#gameCanvas {
-    display: none;
-    margin-top: 20px;
-    background-color: #111;
-    border: 2px solid #555;
-}
-#score {
-    margin-top: 10px;
-    font-size: 18px;
+button{
+padding:10px;
+margin:5px;
+font-size:16px;
+cursor:pointer;
 }
 </style>
 </head>
 <body>
 
-<h1>平滑單機 Snake.io</h1>
+<h1>Snake.io 單機版</h1>
 
 <div id="menu">
-    <button onclick="startGame()">開始遊戲</button>
-    <button onclick="alert('暫未實作設定')">遊戲設定</button>
-    <button onclick="alert('離開遊戲')">離開遊戲</button>
+<button onclick="startGame()">開始遊戲</button>
 </div>
 
-<canvas id="gameCanvas" width="800" height="600"></canvas>
-<div id="score"></div>
+<canvas id="gameCanvas" width="900" height="600"></canvas>
 
 <script>
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// 遊戲參數
-let playerSnake, aiSnakes, food;
-let score = 0;
-let gameInterval;
+let player;
+let aiSnakes=[];
+let foods=[];
+let keys={};
+let running=false;
 
-// 設定玩家蛇
-function startGame() {
-    document.getElementById("menu").style.display = "none";
-    canvas.style.display = "block";
-    score = 0;
-    document.getElementById("score").innerText = "分數: " + score;
+function startGame(){
 
-    playerSnake = {
-        body: [{x: canvas.width/2, y: canvas.height/2}],
-        direction: {x: 2, y: 0}, // 每幀移動速度(px)
-        color: "lime",
-        length: 100 // 蛇身長度 (像素)
-    };
+document.getElementById("menu").style.display="none";
 
-    aiSnakes = [
-        {body: [{x: 100, y:100}], direction: {x: 2, y: 1}, color: "orange", length: 100},
-        {body: [{x: 700, y:500}], direction: {x: -2, y: -1}, color: "cyan", length: 100}
-    ];
+player={
+body:[{x:450,y:300}],
+dir:{x:2,y:0},
+length:120,
+speed:2,
+color:"lime"
+};
 
-    food = randomFood();
+aiSnakes=[];
 
-    if(gameInterval) clearInterval(gameInterval);
-    gameInterval = setInterval(gameLoop, 20); // 平滑動畫
-}
-
-// 生成食物
-function randomFood() {
-    return {
-        x: Math.random() * (canvas.width - 20) + 10,
-        y: Math.random() * (canvas.height - 20) + 10,
-        radius: 8
-    };
-}
-
-// 畫圓形
-function drawCircle(x, y, radius, color) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI*2);
-    ctx.fill();
-}
-
-// 計算距離
-function distance(a, b) {
-    return Math.hypot(a.x-b.x, a.y-b.y);
-}
-
-// 遊戲主迴圈
-function gameLoop() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    // 玩家蛇移動
-    moveSnake(playerSnake);
-
-    // 檢查碰撞
-    if(playerSnake.body[0].x < 0 || playerSnake.body[0].x > canvas.width ||
-       playerSnake.body[0].y < 0 || playerSnake.body[0].y > canvas.height ||
-       snakeCollision(playerSnake, playerSnake)) {
-        gameOver();
-        return;
-    }
-    aiSnakes.forEach(ai => moveAISnake(ai));
-
-    // 檢查AI碰撞玩家
-    for(let ai of aiSnakes){
-        if(snakeCollision(ai, playerSnake) || snakeCollision(playerSnake, ai)){
-            gameOver();
-            return;
-        }
-    }
-
-    // 吃食物
-    if(distance(playerSnake.body[0], food) < 12){
-        score++;
-        document.getElementById("score").innerText = "分數: " + score;
-        playerSnake.length += 10;
-        food = randomFood();
-    }
-
-    aiSnakes.forEach(ai=>{
-        if(distance(ai.body[0], food) < 12){
-            ai.length += 10;
-            food = randomFood();
-        }
-    });
-
-    // 畫食物
-    drawCircle(food.x, food.y, food.radius, "red");
-
-    // 畫玩家蛇
-    drawSnake(playerSnake);
-    aiSnakes.forEach(ai => drawSnake(ai));
-}
-
-// 移動玩家蛇
-function moveSnake(snake) {
-    const head = {x: snake.body[0].x + snake.direction.x, y: snake.body[0].y + snake.direction.y};
-    snake.body.unshift(head);
-
-    // 保持蛇身長度
-    let totalLen = 0;
-    for(let i=0; i<snake.body.length-1; i++){
-        totalLen += distance(snake.body[i], snake.body[i+1]);
-        if(totalLen > snake.length){
-            snake.body = snake.body.slice(0, i+2);
-            break;
-        }
-    }
-}
-
-// 簡單AI蛇移動
-function moveAISnake(ai){
-    const head = ai.body[0];
-    const dx = food.x - head.x;
-    const dy = food.y - head.y;
-    const len = Math.hypot(dx, dy);
-    ai.direction.x = (dx/len)*2;
-    ai.direction.y = (dy/len)*2;
-    moveSnake(ai);
-}
-
-// 畫蛇
-function drawSnake(snake){
-    for(let i=0;i<snake.body.length;i++){
-        drawCircle(snake.body[i].x, snake.body[i].y, 8, snake.color);
-    }
-}
-
-// 碰撞檢查
-function snakeCollision(snake1, snake2){
-    // 檢查蛇頭撞蛇身(略過蛇頭)
-    for(let i=(snake2===snake1?1:0); i<snake2.body.length; i++){
-        if(distance(snake1.body[0], snake2.body[i]) < 8){
-            return true;
-        }
-    }
-    return false;
-}
-
-// 遊戲結束
-function gameOver(){
-    clearInterval(gameInterval);
-    alert("遊戲結束! 分數: " + score);
-    canvas.style.display = "none";
-    document.getElementById("menu").style.display = "block";
-}
-
-// 玩家鍵盤控制
-document.addEventListener("keydown", e=>{
-    const speed = 2;
-    if(e.key==="ArrowUp") { playerSnake.direction.x = 0; playerSnake.direction.y = -speed;}
-    if(e.key==="ArrowDown") { playerSnake.direction.x = 0; playerSnake.direction.y = speed;}
-    if(e.key==="ArrowLeft") { playerSnake.direction.x = -speed; playerSnake.direction.y = 0;}
-    if(e.key==="ArrowRight") { playerSnake.direction.x = speed; playerSnake.direction.y = 0;}
+for(let i=0;i<4;i++){
+aiSnakes.push({
+body:[{x:Math.random()*900,y:Math.random()*600}],
+dir:{x:Math.random()*2-1,y:Math.random()*2-1},
+length:120,
+speed:2,
+color:`hsl(${Math.random()*360},70%,50%)`
 });
+}
+
+foods=[];
+for(let i=0;i<40;i++) spawnFood();
+
+running=true;
+requestAnimationFrame(gameLoop);
+}
+
+function spawnFood(){
+foods.push({
+x:Math.random()*canvas.width,
+y:Math.random()*canvas.height,
+r:6
+});
+}
+
+function dist(a,b){
+return Math.hypot(a.x-b.x,a.y-b.y);
+}
+
+function moveSnake(s){
+
+const head={
+x:s.body[0].x+s.dir.x*s.speed,
+y:s.body[0].y+s.dir.y*s.speed
+};
+
+s.body.unshift(head);
+
+let len=0;
+
+for(let i=0;i<s.body.length-1;i++){
+len+=dist(s.body[i],s.body[i+1]);
+if(len>s.length){
+s.body=s.body.slice(0,i+2);
+break;
+}
+}
+
+}
+
+function drawSnake(s){
+
+for(let i=0;i<s.body.length;i++){
+
+let alpha=1-i/s.body.length;
+
+ctx.fillStyle=s.color;
+
+ctx.globalAlpha=alpha;
+
+ctx.beginPath();
+ctx.arc(s.body[i].x,s.body[i].y,8,0,Math.PI*2);
+ctx.fill();
+
+}
+
+ctx.globalAlpha=1;
+
+}
+
+function drawFood(f){
+
+let g=ctx.createRadialGradient(
+f.x,f.y,0,
+f.x,f.y,10
+);
+
+g.addColorStop(0,"#fff");
+g.addColorStop(1,"red");
+
+ctx.fillStyle=g;
+
+ctx.beginPath();
+ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
+ctx.fill();
+
+}
+
+function aiLogic(ai){
+
+let target=foods[0];
+let best=999999;
+
+for(let f of foods){
+let d=dist(ai.body[0],f);
+if(d<best){
+best=d;
+target=f;
+}
+}
+
+let dx=target.x-ai.body[0].x;
+let dy=target.y-ai.body[0].y;
+let l=Math.hypot(dx,dy);
+
+ai.dir.x=dx/l;
+ai.dir.y=dy/l;
+
+}
+
+function playerControl(){
+
+let speed=keys["Shift"]?4:2;
+
+player.speed=speed;
+
+if(keys["ArrowUp"]) {player.dir.x=0;player.dir.y=-1;}
+if(keys["ArrowDown"]) {player.dir.x=0;player.dir.y=1;}
+if(keys["ArrowLeft"]) {player.dir.x=-1;player.dir.y=0;}
+if(keys["ArrowRight"]) {player.dir.x=1;player.dir.y=0;}
+
+}
+
+function checkFoodEat(s){
+
+for(let i=foods.length-1;i>=0;i--){
+
+if(dist(s.body[0],foods[i])<12){
+
+s.length+=10;
+
+foods.splice(i,1);
+
+spawnFood();
+
+}
+
+}
+
+}
+
+function gameLoop(){
+
+if(!running)return;
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+playerControl();
+
+moveSnake(player);
+
+checkFoodEat(player);
+
+drawSnake(player);
+
+for(let ai of aiSnakes){
+
+aiLogic(ai);
+
+moveSnake(ai);
+
+checkFoodEat(ai);
+
+drawSnake(ai);
+
+}
+
+for(let f of foods) drawFood(f);
+
+requestAnimationFrame(gameLoop);
+
+}
+
+document.addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keyup",e=>keys[e.key]=false);
+
 </script>
 
 </body>
