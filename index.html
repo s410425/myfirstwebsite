@@ -2,24 +2,61 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 磁力流暢版 - 視野最佳化</title>
+<title>Snake.io 終極進化：多模式版</title>
 <style>
-    body{margin:0;overflow:hidden;background:#050505;font-family:sans-serif;user-select:none}
+    body{margin:0;overflow:hidden;background:#050505;font-family:'Segoe UI', sans-serif;user-select:none}
     canvas{display:block}
-    #ui-layer{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.8);padding:15px;border-radius:12px;border:1px solid #0f4;backdrop-filter:blur(5px);pointer-events:none;font-size:14px;line-height:1.5;min-width:150px}
-    #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:28px;font-weight:bold;text-shadow:0 0 15px #0f4}
-    #menu{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;z-index:100}
-    button{font-size:28px;padding:15px 70px;cursor:pointer;background:#0f4;border:none;border-radius:50px;font-weight:bold;margin-top:20px;transition:0.3s}
-    button:hover{transform:scale(1.1);box-shadow:0 0 30px #0f4}
-    hr{border:0;border-top:1px solid #0f4;margin:10px 0}
+    
+    /* UI 層 */
+    #ui-layer{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.85);padding:15px;border-radius:12px;border:1px solid #0f4;backdrop-filter:blur(10px);pointer-events:none;min-width:180px}
+    #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:32px;font-weight:bold;text-shadow:0 0 15px #0f4}
+    
+    /* 永久排行榜 (左側) */
+    #permanent-rank{position:absolute;top:20px;left:20px;color:#aaa;background:rgba(20,20,20,0.8);padding:15px;border-radius:12px;font-size:13px;border:1px solid #444}
+    
+    /* 選單 */
+    #menu{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;z-index:100;transition:0.5s}
+    .btn-group{display:flex;gap:20px;margin-top:30px;flex-wrap: wrap;justify-content: center;}
+    .mode-card{background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; border: 1px solid #333; text-align: center; width: 200px; transition: 0.3s;}
+    .mode-card:hover{border-color: #0f4; background: rgba(0,255,68,0.05); transform: translateY(-5px);}
+    
+    button{font-size:18px;padding:12px 30px;cursor:pointer;background:transparent;border:2px solid #0f4;color:#0f4;border-radius:50px;font-weight:bold;transition:0.3s;margin-top:15px}
+    button:hover{background:#0f4;color:#000;box-shadow:0 0 20px #0f4}
+    button.special{background: #0f4; color: #000;}
+    
+    h1{font-size:50px;margin:0;letter-spacing:3px;text-shadow:0 0 20px #0f4}
+    .mode-desc{color:#777;margin-top:10px;font-size:12px;min-height: 40px;}
+    hr{border:0;border-top:1px solid #333;margin:10px 0}
 </style>
 </head>
 <body>
 
 <div id="menu">
-    <h1 style="color:#0f4">SNAKE MAGNET: 3,000</h1>
-    <p style="color:#888">【排行榜已修復】磁力上限 3,000 | 視野校準</p>
-    <button onclick="start()">開始戰鬥</button>
+    <h1 style="color:#0f4">SNAKE.IO <span style="color:white">ARENA</span></h1>
+    <p style="color:#888">請選擇戰鬥模式</p>
+    
+    <div class="btn-group">
+        <div class="mode-card">
+            <b style="color: #0f4;">練習：覺醒模式</b>
+            <p class="mode-desc">磁力上限 3,000<br>享受黑洞般的吞噬感</p>
+            <button class="special" onclick="start('practice-evo', 3000)">進入模式</button>
+        </div>
+        <div class="mode-card">
+            <b style="color: #fff;">練習：經典模式</b>
+            <p class="mode-desc">磁力上限 300<br>回歸純粹的技術對決</p>
+            <button onclick="start('practice-classic', 300)">進入模式</button>
+        </div>
+        <div class="mode-card">
+            <b style="color: #0af;">連機：全球對戰</b>
+            <p class="mode-desc">磁力上限 300<br>與全球玩家即時競技</p>
+            <button onclick="start('online', 300)">連線對戰</button>
+        </div>
+    </div>
+</div>
+
+<div id="permanent-rank">
+    <b style="color:#0f4">🏆 永久最高紀錄</b><hr>
+    <div id="p-list">尚無紀錄</div>
 </div>
 
 <div id="score-ui">SCORE: 150</div>
@@ -29,14 +66,33 @@
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const MAP = 5000;
-const FOOD_MAX = 700;
-const AI_COUNT = 25;
+const MAP = 6000;
+const FOOD_MAX = 800;
+const AI_COUNT = 30;
 
 let started = false;
+let gameMode = 'practice-evo';
+let currentMagnetLimit = 3000;
 let camera = {x:0, y:0, zoom:1};
 let foods = [], ai = [], toDie = [];
 let mouse = {x:0, y:0, down:false}, keys = {};
+
+// 永久排行榜邏輯
+function updatePermanentUI() {
+    let records = JSON.parse(localStorage.getItem('snake_records_v2') || '[]');
+    const list = document.getElementById('p-list');
+    if(records.length === 0) { list.innerHTML = "尚未有歷史高分"; return; }
+    list.innerHTML = records.map((r, i) => `<div>${i+1}. ${r.mode} <span style="float:right;color:#0f4">${r.score}</span></div>`).join('');
+}
+updatePermanentUI();
+
+function saveRecord(score, mode) {
+    let records = JSON.parse(localStorage.getItem('snake_records_v2') || '[]');
+    records.push({score: Math.floor(score), mode: mode.replace('practice-','').toUpperCase()});
+    records.sort((a,b) => b.score - a.score);
+    localStorage.setItem('snake_records_v2', JSON.stringify(records.slice(0, 5)));
+    updatePermanentUI();
+}
 
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 window.addEventListener('resize', resize);
@@ -51,18 +107,17 @@ class Snake {
         this.speed = 4.5;
         this.angle = Math.random() * Math.PI * 2;
         this.dead = false;
+        this.name = isPlayer ? "YOU" : (gameMode === 'online' ? "PLAYER_" + Math.floor(Math.random()*999) : "AI_BOT");
     }
 
-    getWidth() {
-        return Math.min(100, 15 + Math.sqrt(this.length) * 0.7);
-    }
+    getWidth() { return Math.min(100, 15 + Math.sqrt(this.length) * 0.7); }
 
     update() {
         if (this.dead) return;
-        let boosting = (this.isPlayer && (keys["Shift"] || mouse.down)) && this.length > 200;
-        this.speed = boosting ? 8.5 : 4.5;
-        if (boosting) this.length -= 0.6;
-        this.length = Math.max(100, this.length);
+        let boosting = (this.isPlayer && (keys["Shift"] || mouse.down)) && this.length > 300;
+        this.speed = boosting ? 9 : 4.5;
+        if (boosting) this.length -= 0.8;
+        this.length = Math.max(150, this.length);
 
         let head = {
             x: this.body[0].x + Math.cos(this.angle) * this.speed,
@@ -85,21 +140,17 @@ class Snake {
         ctx.lineWidth = thickness;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
-        if (this.isPlayer) {
-            ctx.shadowBlur = 15 * camera.zoom;
-            ctx.shadowColor = "#0f4";
-        }
+        if (this.isPlayer) { ctx.shadowBlur = 15 * camera.zoom; ctx.shadowColor = this.color; }
         ctx.beginPath();
         ctx.moveTo(toSX(this.body[0].x), toSY(this.body[0].y));
         for(let p of this.body) ctx.lineTo(toSX(p.x), toSY(p.y));
         ctx.stroke();
         ctx.shadowBlur = 0;
-        
-        ctx.fillStyle = "white";
-        let eyeOff = thickness * 0.35;
-        ctx.beginPath();
-        ctx.arc(toSX(this.body[0].x + Math.cos(this.angle)*eyeOff), toSY(this.body[0].y + Math.sin(this.angle)*eyeOff), thickness * 0.2, 0, 7);
-        ctx.fill();
+        if (camera.zoom > 0.4) {
+            ctx.fillStyle = "white";
+            ctx.font = `bold ${12 * camera.zoom}px Arial`;
+            ctx.fillText(this.name, toSX(this.body[0].x), toSY(this.body[0].y) - thickness);
+        }
     }
 }
 
@@ -109,18 +160,17 @@ function spawnFood(x, y, big = false, color = null) {
     foods.push({
         x: x ?? (Math.random() * MAP * 2 - MAP),
         y: y ?? (Math.random() * MAP * 2 - MAP),
-        val: big ? 60 : 18,
-        size: big ? 11 : 6,
+        val: big ? 80 : 20,
+        size: big ? 12 : 6,
         color: color ?? `hsl(${Math.random() * 360}, 100%, 65%)`,
-        big: big
     });
 }
 for(let i=0; i<FOOD_MAX; i++) spawnFood();
 
 function spawnAI() {
     let startLen = 150;
-    if (player.length > 5000) startLen = player.length * 0.8;
-    ai.push(new Snake((Math.random()-0.5) * MAP * 2, (Math.random()-0.5) * MAP * 2, `hsl(${Math.random()*360}, 70%, 55%)`, false, startLen));
+    if (player.length > 5000) startLen = player.length * (0.4 + Math.random()*0.5);
+    ai.push(new Snake((Math.random()-0.5)*MAP*2, (Math.random()-0.5)*MAP*2, `hsl(${Math.random()*360}, 75%, 60%)`, false, startLen));
 }
 for(let i=0; i<AI_COUNT; i++) spawnAI();
 
@@ -128,14 +178,13 @@ function loop() {
     if (!started) return;
     ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // --- 【優化：視野縮放邏輯】 ---
-    // 限制最小 Zoom 為 0.25，防止視野太大導致東西縮得太小
-    let targetZoom = Math.max(0.25, 1.1 - (player.length / 8000));
-    camera.zoom += (targetZoom - camera.zoom) * 0.04;
+    // 視野縮放調整
+    let targetZoom = Math.max(0.35, 1.1 - (player.length / 10000));
+    camera.zoom += (targetZoom - camera.zoom) * 0.05;
     camera.x = player.body[0].x; camera.y = player.body[0].y;
 
-    // --- 【優化：磁力動畫 (3000)】 ---
-    let magnetRange = Math.min(3000, 10 * player.length);
+    // 模式磁力判定
+    let magnetRange = Math.min(currentMagnetLimit, 10 * player.length);
 
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
@@ -143,23 +192,18 @@ function loop() {
         let distSq = dx*dx + dy*dy;
         
         if (distSq < magnetRange * magnetRange) {
-            // 食物滑動感動畫
-            f.x += dx * 0.12; f.y += dy * 0.12;
-            
-            // 進食判斷 (進入身體範圍)
-            let headSize = player.getWidth();
-            if (distSq < (headSize * headSize * 0.6)) {
-                player.length += f.val + (player.length * 0.02);
-                foods.splice(i, 1);
-                spawnFood();
+            f.x += dx * 0.15; f.y += dy * 0.15; // 平滑吸引動畫
+            if (distSq < (player.getWidth()**2)) {
+                player.length += f.val + (player.length * 0.015);
+                foods.splice(i, 1); spawnFood();
             }
         }
         
         ai.forEach(s => {
             let adx = s.body[0].x - f.x, ady = s.body[0].y - f.y;
-            if (adx*adx + ady*ady < 600) {
-                s.length += f.val; 
-                if (foods[i]) { foods.splice(i, 1); spawnFood(); }
+            if (adx*adx + ady*ady < 800) {
+                s.length += f.val;
+                if(foods[i]) { foods.splice(i, 1); spawnFood(); }
             }
         });
     }
@@ -167,10 +211,8 @@ function loop() {
     const toSX = x => (x - camera.x) * camera.zoom + canvas.width/2;
     const toSY = y => (y - camera.y) * camera.zoom + canvas.height/2;
     foods.forEach(f => {
-        ctx.fillStyle = f.color;
-        ctx.beginPath();
-        ctx.arc(toSX(f.x), toSY(f.y), f.size * camera.zoom, 0, 7);
-        ctx.fill();
+        ctx.fillStyle = f.color; ctx.beginPath();
+        ctx.arc(toSX(f.x), toSY(f.y), f.size * camera.zoom, 0, 7); ctx.fill();
     });
 
     player.angle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
@@ -179,18 +221,17 @@ function loop() {
 
     ai.forEach(s => {
         if (Math.random() > 0.98) {
-            let f = foods[Math.floor(Math.random()*foods.length)];
-            s.angle = Math.atan2(f.y - s.body[0].y, f.x - s.body[0].x);
+            let target = foods[Math.floor(Math.random()*foods.length)];
+            s.angle = Math.atan2(target.y - s.body[0].y, target.x - s.body[0].x);
         }
         s.update();
         if (Math.abs(s.body[0].x) > MAP || Math.abs(s.body[0].y) > MAP) s.dead = true;
         
-        let snakes = [player, ...ai];
-        snakes.forEach(other => {
+        [player, ...ai].forEach(other => {
             if (other === s || other.dead) return;
             let h = s.body[0];
             let minDist = (s.getWidth() + other.getWidth()) * 0.45;
-            for (let j = 0; j < other.body.length; j += 8) {
+            for (let j = 0; j < other.body.length; j += 10) {
                 let dx = h.x - other.body[j].x, dy = h.y - other.body[j].y;
                 if (dx*dx + dy*dy < minDist * minDist) s.dead = true;
             }
@@ -198,18 +239,22 @@ function loop() {
         if (s.dead) toDie.push(s);
     });
 
-    ai.forEach(other => {
-        let minDist = (player.getWidth() + other.getWidth()) * 0.45;
-        for (let j = 0; j < other.body.length; j += 5) {
-            let dx = player.body[0].x - other.body[j].x, dy = player.body[0].y - other.body[j].y;
+    ai.forEach(s => {
+        let minDist = (player.getWidth() + s.getWidth()) * 0.45;
+        for (let j = 0; j < s.body.length; j += 6) {
+            let dx = player.body[0].x - s.body[j].x, dy = player.body[0].y - s.body[j].y;
             if (dx*dx + dy*dy < minDist * minDist) player.dead = true;
         }
     });
 
-    if (player.dead) { player = new Snake(0, 0, "#0f4", true); }
+    if (player.dead) {
+        saveRecord(player.length, gameMode);
+        player = new Snake(0, 0, "#0f4", true);
+    }
+
     toDie.forEach(s => {
-        let count = Math.min(50, Math.floor(s.length/40));
-        for(let k=0; k<count; k++) spawnFood(s.body[0].x+(Math.random()-0.5)*200, s.body[0].y+(Math.random()-0.5)*200, true, s.color);
+        let count = Math.min(40, Math.floor(s.length/50));
+        for(let k=0; k<count; k++) spawnFood(s.body[0].x+(Math.random()-0.5)*300, s.body[0].y+(Math.random()-0.5)*300, true, s.color);
         ai.splice(ai.indexOf(s), 1); spawnAI();
     });
     toDie = [];
@@ -217,16 +262,24 @@ function loop() {
     ai.forEach(a => a.draw());
     player.draw();
 
-    // --- 【排行榜更新】 ---
-    document.getElementById("score-ui").innerText = `LENGTH: ${Math.floor(player.length)}`;
-    let ranking = [player, ...ai].sort((a,b)=>b.length - a.length).slice(0, 7);
-    document.getElementById("ui-layer").innerHTML = "<b>🏆 LEADERBOARD</b><hr>" + 
-        ranking.map((s,i)=>`<div style="color:${s.isPlayer?'#0f4':'#fff'}">${i+1}. ${s.isPlayer?'YOU':'AI SNAKE'} <span style="float:right">${Math.floor(s.length)}</span></div>`).join("");
+    // 更新 UI 排行榜
+    document.getElementById("score-ui").innerText = `SCORE: ${Math.floor(player.length)}`;
+    let ranking = [player, ...ai].sort((a,b)=>b.length - a.length).slice(0, 8);
+    document.getElementById("ui-layer").innerHTML = `<b>🏆 ${gameMode.replace('practice-','').toUpperCase()} RANK</b><hr>` + 
+        ranking.map((s,i)=>`<div style="color:${s.isPlayer?'#0f4':'#fff'}">${i+1}. ${s.name} <span style="float:right">${Math.floor(s.length)}</span></div>`).join("");
 
     requestAnimationFrame(loop);
 }
 
-function start() { started=true; document.getElementById("menu").style.display="none"; loop(); }
+function start(mode, magnet) {
+    gameMode = mode;
+    currentMagnetLimit = magnet;
+    started = true;
+    document.getElementById("menu").style.opacity = "0";
+    setTimeout(() => document.getElementById("menu").style.display = "none", 500);
+    loop();
+}
+
 addEventListener("mousemove", e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 addEventListener("mousedown", () => mouse.down = true);
 addEventListener("mouseup", () => mouse.down = false);
