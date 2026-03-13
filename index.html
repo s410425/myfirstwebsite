@@ -2,34 +2,37 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 究極平衡版</title>
+<title>Snake.io 究極黑洞霸主版</title>
 <style>
     body{margin:0;overflow:hidden;background:#050505;font-family:sans-serif;user-select:none}
     canvas{display:block}
-    #ui{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.7);padding:15px;border-radius:12px;border:1px solid #444;backdrop-filter:blur(5px);pointer-events:none}
-    #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:24px;font-weight:bold;text-shadow:0 0 10px #0f4}
+    #ui-layer{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.8);padding:15px;border-radius:12px;border:1px solid #0f4;backdrop-filter:blur(5px);pointer-events:none}
+    #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:28px;font-weight:bold;text-shadow:0 0 15px #0f4;letter-spacing:3px}
     #menu{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;z-index:100}
-    button{font-size:28px;padding:12px 60px;cursor:pointer;background:#0f4;border:none;border-radius:50px;font-weight:bold;transition:0.3s}
+    h1{font-size:50px;margin:0;color:#0f4;text-shadow:0 0 20px #0f4}
+    button{font-size:28px;padding:15px 70px;cursor:pointer;background:#0f4;border:none;border-radius:50px;font-weight:bold;margin-top:20px;transition:0.3s}
+    button:hover{transform:scale(1.1);box-shadow:0 0 30px #0f4}
 </style>
 </head>
 <body>
 
 <div id="menu">
-    <h1>SNAKE PRO</h1>
-    <p>SHIFT 加速 | 靠近食物觸發磁石吸取</p>
-    <button onclick="start()">開始戰鬥</button>
+    <h1>BLACK HOLE SNAKE</h1>
+    <p style="color:#888">磁石範圍：80x 長度 (無死角收割)</p>
+    <p style="color:#888">5000 分後觸發：重生 AI 繼承 80% 戰力</p>
+    <button onclick="start()">啟動黑洞</button>
 </div>
 
 <div id="score-ui">SCORE: 150</div>
-<div id="ui"></div>
+<div id="ui-layer"></div>
 <canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const MAP = 3500;
-const FOOD_MAX = 500;
-const AI_COUNT = 25;
+const MAP = 5000;      // 地圖擴大，給大蛇更多空間
+const FOOD_MAX = 600;  // 增加食物基數
+const AI_COUNT = 20;
 
 let started = false;
 let camera = {x:0, y:0, zoom:1};
@@ -41,30 +44,29 @@ window.addEventListener('resize', resize);
 resize();
 
 class Snake {
-    constructor(x, y, color, isPlayer = false) {
+    constructor(x, y, color, isPlayer = false, startLen = 150) {
         this.body = [{x, y}];
-        this.length = 150;
+        this.length = startLen;
         this.color = color;
         this.isPlayer = isPlayer;
-        this.speed = 3.5;
+        this.speed = 4;
         this.angle = Math.random() * Math.PI * 2;
         this.dead = false;
     }
 
-    // 取得當前身體寬度 (基於開根號的等比縮放，確保不會無限變粗)
+    // 變粗邏輯：無限制變粗，但使用根號平滑曲線避免粗得太離譜
     getWidth() {
-        return Math.min(60, 15 + Math.sqrt(this.length) * 0.6);
+        return 15 + Math.sqrt(this.length) * 0.8;
     }
 
     update() {
         if (this.dead) return;
 
-        let boosting = (this.isPlayer && (keys["Shift"] || mouse.down)) && this.length > 100;
-        this.speed = boosting ? 7.5 : 3.8;
-        if (boosting) this.length -= 0.5;
+        let boosting = (this.isPlayer && (keys["Shift"] || mouse.down)) && this.length > 200;
+        this.speed = boosting ? 9 : 4.5;
+        if (boosting) this.length -= 0.8; // 加速消耗更高，平衡黑洞吸力
 
-        // 體型底線
-        this.length = Math.max(80, this.length);
+        this.length = Math.max(100, this.length);
 
         let head = {
             x: this.body[0].x + Math.cos(this.angle) * this.speed,
@@ -89,16 +91,23 @@ class Snake {
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         
+        // 霸主發光特效
+        if (this.length > 5000) {
+            ctx.shadowBlur = 20 * camera.zoom;
+            ctx.shadowColor = this.color;
+        }
+        
         ctx.beginPath();
         ctx.moveTo(toSX(this.body[0].x), toSY(this.body[0].y));
         for(let p of this.body) ctx.lineTo(toSX(p.x), toSY(p.y));
         ctx.stroke();
+        ctx.shadowBlur = 0;
 
         // 眼睛
         ctx.fillStyle = "white";
-        let eyeOff = thickness * 0.35;
+        let eyeOff = thickness * 0.4;
         ctx.beginPath();
-        ctx.arc(toSX(this.body[0].x + Math.cos(this.angle)*eyeOff), toSY(this.body[0].y + Math.sin(this.angle)*eyeOff), thickness*0.2, 0, 7);
+        ctx.arc(toSX(this.body[0].x + Math.cos(this.angle)*eyeOff), toSY(this.body[0].y + Math.sin(this.angle)*eyeOff), thickness * 0.22, 0, 7);
         ctx.fill();
     }
 }
@@ -109,8 +118,8 @@ function spawnFood(x, y, big = false, color = null) {
     foods.push({
         x: x ?? (Math.random() * MAP * 2 - MAP),
         y: y ?? (Math.random() * MAP * 2 - MAP),
-        val: big ? 40 : 12,
-        size: big ? 8 : 4,
+        val: big ? 50 : 15,
+        size: big ? 10 : 5,
         color: color ?? `hsl(${Math.random() * 360}, 100%, 60%)`,
         big: big
     });
@@ -118,7 +127,19 @@ function spawnFood(x, y, big = false, color = null) {
 for(let i=0; i<FOOD_MAX; i++) spawnFood();
 
 function spawnAI() {
-    ai.push(new Snake(Math.random()*MAP*2-MAP, Math.random()*MAP*2-MAP, `hsl(${Math.random()*360}, 70%, 60%)`));
+    let startLen = 150;
+    // 重生基礎分數調成：玩家分數 * 0.8 (當玩家 > 5000)
+    if (player.length > 5000) {
+        startLen = player.length * 0.8;
+    }
+    
+    ai.push(new Snake(
+        (Math.random()-0.5) * MAP * 2, 
+        (Math.random()-0.5) * MAP * 2, 
+        `hsl(${Math.random()*360}, 80%, 60%)`, 
+        false, 
+        startLen
+    ));
 }
 for(let i=0; i<AI_COUNT; i++) spawnAI();
 
@@ -126,49 +147,40 @@ function loop() {
     if (!started) return;
     ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 1. 動態視角與縮放 (更平滑)
-    let targetZoom = Math.max(0.35, 1.2 - (player.length / 6000));
+    // 1. 鏡頭控制：視角隨體型極限縮放
+    let targetZoom = Math.max(0.15, 1.2 - (player.length / 10000));
     camera.zoom += (targetZoom - camera.zoom) * 0.05;
     camera.x = player.body[0].x;
     camera.y = player.body[0].y;
 
-    // 2. 繪製背景網格
-    ctx.strokeStyle = "#111";
-    let step = 150 * camera.zoom;
-    for(let x = (canvas.width/2 - camera.x * camera.zoom) % step; x < canvas.width; x += step) {
-        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke();
-    }
-    for(let y = (canvas.height/2 - camera.y * camera.zoom) % step; y < canvas.height; y += step) {
-        ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
-    }
-
-    // 3. 食物系統 (磁石效果 Magnet Effect)
+    // 2. 繪製食物與【黑洞磁力邏輯】
     let snakes = [player, ...ai];
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
         let sx = (f.x - camera.x)*camera.zoom + canvas.width/2;
         let sy = (f.y - camera.y)*camera.zoom + canvas.height/2;
 
-        if (sx > -50 && sx < canvas.width + 50 && sy > -50 && sy < canvas.height + 50) {
+        // 渲染優化
+        if (sx > -100 && sx < canvas.width + 100 && sy > -100 && sy < canvas.height + 100) {
             ctx.fillStyle = f.color;
             ctx.beginPath(); ctx.arc(sx, sy, f.size * camera.zoom, 0, 7); ctx.fill();
-            if(f.big) { ctx.strokeStyle="white"; ctx.lineWidth=2; ctx.stroke(); }
         }
 
+        // 強力磁石吸取
         snakes.forEach(s => {
             if (s.dead) return;
             let dx = s.body[0].x - f.x, dy = s.body[0].y - f.y;
             let distSq = dx*dx + dy*dy;
             
-            // 磁力吸取範圍 (隨蛇寬度調整)
-            let magnetRange = s.getWidth() * 4; 
+            // 範圍設定：80 * 本身長度 (無死角)
+            let magnetRange = 80 * s.length; 
             if (distSq < magnetRange * magnetRange) {
-                f.x += dx * 0.15; f.y += dy * 0.15; // 被磁力吸入
+                // 食物以極速飛向頭部
+                f.x += dx * 0.35; f.y += dy * 0.35; 
                 
-                if (distSq < 400) { // 真正吃掉
-                    // 等比成長邏輯 (成長隨體型變大而遞減，防止崩潰)
-                    let growth = f.val * (1 + 2000 / (s.length + 1000));
-                    s.length += growth;
+                if (distSq < 1000) { // 吞噬判定
+                    // 等比加分：基礎 + 長度 2%
+                    s.length += f.val + (s.length * 0.02);
                     foods.splice(i, 1);
                     if (!f.big) spawnFood();
                 }
@@ -176,69 +188,65 @@ function loop() {
         });
     }
 
-    // 4. 更新與碰撞判定
+    // 3. 更新與碰撞
     player.angle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
     player.update();
-    
-    // 牆壁致死
     if (Math.abs(player.body[0].x) > MAP || Math.abs(player.body[0].y) > MAP) player.dead = true;
 
     ai.forEach(s => {
-        if (Math.random() > 0.97) {
+        if (Math.random() > 0.98) {
             let f = foods[Math.floor(Math.random()*foods.length)];
             s.angle = Math.atan2(f.y - s.body[0].y, f.x - s.body[0].x);
         }
         s.update();
         if (Math.abs(s.body[0].x) > MAP || Math.abs(s.body[0].y) > MAP) s.dead = true;
 
-        // AI 碰撞檢測
+        // 碰撞判定 (隨體型變粗調整)
         snakes.forEach(other => {
             if (other === s || other.dead) return;
-            let head = s.body[0];
-            for (let j = 0; j < other.body.length; j += 5) {
-                let dx = head.x - other.body[j].x, dy = head.y - other.body[j].y;
-                let minDist = (s.getWidth() + other.getWidth()) * 0.4;
+            let minDist = (s.getWidth() + other.getWidth()) * 0.45;
+            for (let j = 0; j < other.body.length; j += 6) {
+                let dx = s.body[0].x - other.body[j].x, dy = s.body[0].y - other.body[j].y;
                 if (dx*dx + dy*dy < minDist * minDist) s.dead = true;
             }
         });
         if (s.dead) toDie.push(s);
     });
 
-    // 玩家被撞檢測
+    // 玩家被撞判斷
     ai.forEach(other => {
+        let minDist = (player.getWidth() + other.getWidth()) * 0.45;
         for (let j = 0; j < other.body.length; j += 4) {
             let dx = player.body[0].x - other.body[j].x, dy = player.body[0].y - other.body[j].y;
-            let minDist = (player.getWidth() + other.getWidth()) * 0.4;
             if (dx*dx + dy*dy < minDist * minDist) player.dead = true;
         }
     });
 
-    // 5. 處理死亡事件
+    // 4. 死亡處理
     if (player.dead) {
-        // 玩家死掉噴發能量並重啟
-        for(let i=0; i<30; i++) spawnFood(player.body[0].x+(Math.random()-0.5)*100, player.body[0].y+(Math.random()-0.5)*100, true, player.color);
+        for(let i=0; i<50; i++) spawnFood(player.body[0].x+(Math.random()-0.5)*200, player.body[0].y+(Math.random()-0.5)*200, true, player.color);
         player = new Snake(0, 0, "#0f4", true);
     }
 
     toDie.forEach(s => {
-        let count = Math.min(60, Math.floor(s.length/20));
+        let count = Math.min(100, Math.floor(s.length/20));
         for(let k=0; k<count; k++) {
             let p = s.body[Math.floor(Math.random()*s.body.length)];
-            spawnFood(p.x+(Math.random()-0.5)*80, p.y+(Math.random()-0.5)*80, true, s.color);
+            spawnFood(p.x+(Math.random()-0.5)*120, p.y+(Math.random()-0.5)*120, true, s.color);
         }
         ai.splice(ai.indexOf(s), 1);
         spawnAI();
     });
     toDie = [];
 
-    // 6. 渲染
+    // 5. 渲染
     ai.forEach(a => a.draw());
     player.draw();
 
-    // UI 與排行榜
-    document.getElementById("score-ui").innerText = `SCORE: ${Math.floor(player.length)}`;
+    // 6. UI 更新
+    document.getElementById("score-ui").innerText = `LENGTH: ${Math.floor(player.length)}`;
     let ranking = [player, ...ai].sort((a,b)=>b.length - a.length).slice(0, 5);
-    document.getElementById("ui").innerHTML = "<b>LEADERBOARD</b><br>" + ranking.map((s,i)=>`${i+1}. ${s.isPlayer?'YOU':'AI'} - ${Math.floor(s.length)}`).join("<br>");
+    document.getElementById("ui-layer").innerHTML = "<b>HUNTER RANK</b><br><hr>" + ranking.map((s,i)=>`${i+1}. ${s.isPlayer?'YOU':'AI'} - ${Math.floor(s.length)}`).join("<br>");
 
     requestAnimationFrame(loop);
 }
