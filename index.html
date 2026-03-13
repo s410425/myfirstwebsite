@@ -2,14 +2,14 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io Arena - 完整功能版</title>
+<title>Snake.io Arena - 死亡返回版</title>
 <style>
     body{margin:0;overflow:hidden;background:#050505;font-family:'Segoe UI', sans-serif;user-select:none}
     canvas{display:block}
     
     /* UI 層 */
-    #ui-layer{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.85);padding:15px;border-radius:12px;border:1px solid #0f4;backdrop-filter:blur(10px);pointer-events:none;min-width:180px}
-    #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:32px;font-weight:bold;text-shadow:0 0 15px #0f4}
+    #ui-layer{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.85);padding:15px;border-radius:12px;border:1px solid #0f4;backdrop-filter:blur(10px);pointer-events:none;min-width:180px;display:none}
+    #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:32px;font-weight:bold;text-shadow:0 0:15px #0f4;display:none}
     
     /* 永久排行榜 (左側) */
     #permanent-rank{position:absolute;top:20px;left:20px;color:#eee;background:rgba(20,20,20,0.9);padding:15px;border-radius:12px;font-size:13px;border:1px solid #444;width:200px}
@@ -59,7 +59,7 @@
     </div>
     
     <button id="start-btn" onclick="startGame()">START GAME</button>
-    <p class="hint">遊戲中按 [ESC] 可隨時退出並紀錄成績</p>
+    <p class="hint">撞擊死亡後將自動返回選單存檔</p>
 </div>
 
 <div id="permanent-rank">
@@ -86,7 +86,7 @@ let foods = [], ai_bots = [], toDie = [];
 let mouse = {x:0, y:0, down:false}, keys = {};
 let playerName = "GUEST";
 
-// --- 排行榜儲存 ---
+// --- 排行榜 ---
 function selectMode(mode, magnet) {
     currentMode = mode;
     currentMagnetLimit = magnet;
@@ -98,7 +98,7 @@ function selectMode(mode, magnet) {
 function updatePermanentUI() {
     const title = document.getElementById('rank-title');
     title.innerText = `🏆 ${currentMode.toUpperCase()} 紀錄`;
-    let storageKey = `snake_rank_v4_${currentMode}`;
+    let storageKey = `snake_rank_final_${currentMode}`;
     let records = JSON.parse(localStorage.getItem(storageKey) || '[]');
     const list = document.getElementById('p-list');
     if(records.length === 0) { list.innerHTML = "<div style='color:#555'>尚無紀錄</div>"; return; }
@@ -108,20 +108,15 @@ function updatePermanentUI() {
 }
 
 function saveRecord(score) {
-    if (score < 200) return; // 分數太低不紀錄
-    let storageKey = `snake_rank_v4_${currentMode}`;
+    if (score < 10) return; 
+    let storageKey = `snake_rank_final_${currentMode}`;
     let records = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    records.push({ 
-        score: Math.floor(score), 
-        name: playerName,
-        date: new Date().toLocaleDateString() 
-    });
+    records.push({ score: Math.floor(score), name: playerName, date: new Date().toLocaleDateString() });
     records.sort((a,b) => b.score - a.score);
     localStorage.setItem(storageKey, JSON.stringify(records.slice(0, 5)));
     updatePermanentUI();
 }
 
-// 預設模式
 selectMode('evo', 3000);
 
 // --- 核心類別 ---
@@ -189,7 +184,7 @@ function spawnFood(x, y, big = false, color = null) {
 
 function spawnAI() {
     let startLen = 150;
-    if (player.length > 5000) startLen = player.length * (0.3 + Math.random()*0.4);
+    if (player && player.length > 5000) startLen = player.length * (0.3 + Math.random()*0.4);
     ai_bots.push(new Snake((Math.random()-0.5)*MAP*2, (Math.random()-0.5)*MAP*2, `hsl(${Math.random()*360}, 75%, 60%)`, false, startLen));
 }
 
@@ -203,7 +198,6 @@ function loop() {
 
     let magnetRange = Math.min(currentMagnetLimit, 10 * player.length);
 
-    // 食物與磁力
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
         let dx = player.body[0].x - f.x, dy = player.body[0].y - f.y;
@@ -235,7 +229,6 @@ function loop() {
     player.update();
     if (Math.abs(player.body[0].x) > MAP || Math.abs(player.body[0].y) > MAP) player.dead = true;
 
-    // AI 邏輯
     ai_bots.forEach(s => {
         if (Math.random() > 0.98) {
             let target = foods[Math.floor(Math.random()*foods.length)];
@@ -253,7 +246,7 @@ function loop() {
         if (s.dead) toDie.push(s);
     });
 
-    // 玩家死亡偵測
+    // 玩家死亡判斷 -> 回選單
     ai_bots.forEach(s => {
         let minDist = (player.getWidth() + s.getWidth()) * 0.45;
         for (let j = 0; j < s.body.length; j += 6) {
@@ -262,7 +255,11 @@ function loop() {
         }
     });
 
-    if (player.dead) { saveRecord(player.length); initGame(); }
+    if (player.dead) {
+        exitToMenu(); // 這裡執行結算並返回
+        return; 
+    }
+
     toDie.forEach(s => {
         let count = Math.min(40, Math.floor(s.length/50));
         for(let k=0; k<count; k++) spawnFood(s.body[0].x+(Math.random()-0.5)*300, s.body[0].y+(Math.random()-0.5)*300, true, s.color);
@@ -286,6 +283,8 @@ function startGame() {
     initGame();
     started = true;
     document.getElementById("menu").style.display = "none";
+    document.getElementById("score-ui").style.display = "block";
+    document.getElementById("ui-layer").style.display = "block";
     loop();
 }
 
@@ -294,15 +293,15 @@ function exitToMenu() {
     saveRecord(player.length);
     started = false;
     document.getElementById("menu").style.display = "flex";
+    document.getElementById("score-ui").style.display = "none";
+    document.getElementById("ui-layer").style.display = "none";
 }
 
-// 監聽 ESC 鍵
 window.addEventListener("keydown", e => {
     keys[e.key] = true;
     if (e.key === "Escape") exitToMenu();
 });
 window.addEventListener("keyup", e => keys[e.key] = false);
-
 addEventListener("mousemove", e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 addEventListener("mousedown", () => mouse.down = true);
 addEventListener("mouseup", () => mouse.down = false);
