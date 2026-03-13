@@ -2,93 +2,87 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Advanced Snake.io</title>
+<title>Snake.io Offline</title>
+
 <style>
 body{
+margin:0;
 background:#111;
 color:white;
-text-align:center;
-font-family:Arial;
-margin:0;
+font-family:sans-serif;
+overflow:hidden;
 }
-canvas{
-background:#0a0a0a;
-border:2px solid #555;
-margin-top:20px;
-}
-#menu{
-margin-top:20px;
-}
-button{
+
+#rank{
+position:absolute;
+top:10px;
+right:10px;
+background:rgba(0,0,0,0.5);
 padding:10px;
-margin:5px;
-font-size:16px;
-cursor:pointer;
+border-radius:10px;
+font-size:14px;
 }
 </style>
+
 </head>
+
 <body>
 
-<h1>Snake.io 單機版</h1>
-
-<div id="menu">
-<button onclick="startGame()">開始遊戲</button>
-</div>
-
-<canvas id="gameCanvas" width="900" height="600"></canvas>
+<canvas id="game"></canvas>
+<div id="rank"></div>
 
 <script>
 
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+const canvas=document.getElementById("game")
+const ctx=canvas.getContext("2d")
 
-let player;
-let aiSnakes=[];
-let foods=[];
-let keys={};
-let running=false;
+canvas.width=window.innerWidth
+canvas.height=window.innerHeight
 
-function startGame(){
+let camera={x:0,y:0}
 
-document.getElementById("menu").style.display="none";
+let foods=[]
+let aiSnakes=[]
+let keys={}
 
-player={
-body:[{x:450,y:300}],
-dir:{x:2,y:0},
-length:120,
+let player={
+body:[{x:0,y:0}],
+dir:{x:1,y:0},
+length:150,
 speed:2,
 color:"lime"
-};
-
-aiSnakes=[];
-
-for(let i=0;i<4;i++){
-aiSnakes.push({
-body:[{x:Math.random()*900,y:Math.random()*600}],
-dir:{x:Math.random()*2-1,y:Math.random()*2-1},
-length:120,
-speed:2,
-color:`hsl(${Math.random()*360},70%,50%)`
-});
-}
-
-foods=[];
-for(let i=0;i<40;i++) spawnFood();
-
-running=true;
-requestAnimationFrame(gameLoop);
 }
 
 function spawnFood(){
+
 foods.push({
-x:Math.random()*canvas.width,
-y:Math.random()*canvas.height,
-r:6
-});
+x:(Math.random()-0.5)*4000,
+y:(Math.random()-0.5)*4000,
+r:5
+})
+
 }
 
+for(let i=0;i<200;i++) spawnFood()
+
+function spawnAI(){
+
+aiSnakes.push({
+body:[{x:(Math.random()-0.5)*2000,y:(Math.random()-0.5)*2000}],
+dir:{x:Math.random()-0.5,y:Math.random()-0.5},
+length:150,
+speed:2,
+color:`hsl(${Math.random()*360},70%,50%)`
+})
+
+}
+
+for(let i=0;i<20;i++) spawnAI()
+
 function dist(a,b){
-return Math.hypot(a.x-b.x,a.y-b.y);
+
+return Math.hypot(a.x-b.x,a.y-b.y)
+
 }
 
 function moveSnake(s){
@@ -96,18 +90,23 @@ function moveSnake(s){
 const head={
 x:s.body[0].x+s.dir.x*s.speed,
 y:s.body[0].y+s.dir.y*s.speed
-};
+}
 
-s.body.unshift(head);
+s.body.unshift(head)
 
-let len=0;
+let len=0
 
 for(let i=0;i<s.body.length-1;i++){
-len+=dist(s.body[i],s.body[i+1]);
+
+len+=dist(s.body[i],s.body[i+1])
+
 if(len>s.length){
-s.body=s.body.slice(0,i+2);
-break;
+
+s.body=s.body.slice(0,i+2)
+break
+
 }
+
 }
 
 }
@@ -116,127 +115,196 @@ function drawSnake(s){
 
 for(let i=0;i<s.body.length;i++){
 
-let alpha=1-i/s.body.length;
+let p=s.body[i]
 
-ctx.fillStyle=s.color;
+ctx.globalAlpha=1-i/s.body.length
 
-ctx.globalAlpha=alpha;
+ctx.fillStyle=s.color
 
-ctx.beginPath();
-ctx.arc(s.body[i].x,s.body[i].y,8,0,Math.PI*2);
-ctx.fill();
+ctx.beginPath()
+
+ctx.arc(
+p.x-camera.x,
+p.y-camera.y,
+8,
+0,
+Math.PI*2
+)
+
+ctx.fill()
 
 }
 
-ctx.globalAlpha=1;
+ctx.globalAlpha=1
 
 }
 
 function drawFood(f){
 
 let g=ctx.createRadialGradient(
-f.x,f.y,0,
-f.x,f.y,10
-);
+f.x-camera.x,
+f.y-camera.y,
+0,
+f.x-camera.x,
+f.y-camera.y,
+10
+)
 
-g.addColorStop(0,"#fff");
-g.addColorStop(1,"red");
+g.addColorStop(0,"white")
+g.addColorStop(1,"red")
 
-ctx.fillStyle=g;
+ctx.fillStyle=g
 
-ctx.beginPath();
-ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
-ctx.fill();
+ctx.beginPath()
 
-}
+ctx.arc(
+f.x-camera.x,
+f.y-camera.y,
+f.r,
+0,
+Math.PI*2
+)
 
-function aiLogic(ai){
-
-let target=foods[0];
-let best=999999;
-
-for(let f of foods){
-let d=dist(ai.body[0],f);
-if(d<best){
-best=d;
-target=f;
-}
-}
-
-let dx=target.x-ai.body[0].x;
-let dy=target.y-ai.body[0].y;
-let l=Math.hypot(dx,dy);
-
-ai.dir.x=dx/l;
-ai.dir.y=dy/l;
+ctx.fill()
 
 }
 
-function playerControl(){
-
-let speed=keys["Shift"]?4:2;
-
-player.speed=speed;
-
-if(keys["ArrowUp"]) {player.dir.x=0;player.dir.y=-1;}
-if(keys["ArrowDown"]) {player.dir.x=0;player.dir.y=1;}
-if(keys["ArrowLeft"]) {player.dir.x=-1;player.dir.y=0;}
-if(keys["ArrowRight"]) {player.dir.x=1;player.dir.y=0;}
-
-}
-
-function checkFoodEat(s){
+function eatFood(s){
 
 for(let i=foods.length-1;i>=0;i--){
 
 if(dist(s.body[0],foods[i])<12){
 
-s.length+=10;
+s.length+=10
 
-foods.splice(i,1);
+foods.splice(i,1)
 
-spawnFood();
-
-}
+spawnFood()
 
 }
 
 }
 
-function gameLoop(){
+}
 
-if(!running)return;
+function aiBrain(ai){
 
-ctx.clearRect(0,0,canvas.width,canvas.height);
+let target=foods[0]
+let best=999999
 
-playerControl();
+for(let f of foods){
 
-moveSnake(player);
+let d=dist(ai.body[0],f)
 
-checkFoodEat(player);
+if(d<best){
 
-drawSnake(player);
+best=d
+target=f
+
+}
+
+}
+
+let dx=target.x-ai.body[0].x
+let dy=target.y-ai.body[0].y
+
+let l=Math.hypot(dx,dy)
+
+ai.dir.x=dx/l
+ai.dir.y=dy/l
+
+}
+
+function snakeDie(s){
+
+for(let p of s.body){
+
+foods.push({
+x:p.x,
+y:p.y,
+r:5
+})
+
+}
+
+}
+
+function leaderboard(){
+
+let all=[player,...aiSnakes]
+
+all.sort((a,b)=>b.length-a.length)
+
+let txt="排行榜<br>"
+
+for(let i=0;i<5;i++){
+
+txt+=`${i+1}. ${Math.floor(all[i].length)}<br>`
+
+}
+
+document.getElementById("rank").innerHTML=txt
+
+}
+
+function playerControl(){
+
+let sp=keys["Shift"]?4:2
+
+player.speed=sp
+
+if(keys["ArrowUp"]) player.dir={x:0,y:-1}
+if(keys["ArrowDown"]) player.dir={x:0,y:1}
+if(keys["ArrowLeft"]) player.dir={x:-1,y:0}
+if(keys["ArrowRight"]) player.dir={x:1,y:0}
+
+}
+
+function updateCamera(){
+
+camera.x=player.body[0].x-canvas.width/2
+camera.y=player.body[0].y-canvas.height/2
+
+}
+
+function game(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+playerControl()
+
+moveSnake(player)
+
+eatFood(player)
 
 for(let ai of aiSnakes){
 
-aiLogic(ai);
+aiBrain(ai)
 
-moveSnake(ai);
+moveSnake(ai)
 
-checkFoodEat(ai);
-
-drawSnake(ai);
+eatFood(ai)
 
 }
 
-for(let f of foods) drawFood(f);
+updateCamera()
 
-requestAnimationFrame(gameLoop);
+for(let f of foods) drawFood(f)
+
+drawSnake(player)
+
+for(let ai of aiSnakes) drawSnake(ai)
+
+leaderboard()
+
+requestAnimationFrame(game)
 
 }
 
-document.addEventListener("keydown",e=>keys[e.key]=true);
-document.addEventListener("keyup",e=>keys[e.key]=false);
+document.addEventListener("keydown",e=>keys[e.key]=true)
+document.addEventListener("keyup",e=>keys[e.key]=false)
+
+game()
 
 </script>
 
