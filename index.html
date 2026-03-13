@@ -3,34 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <title>Snake.io</title>
-
 <style>
 body{margin:0;overflow:hidden;background:#111;font-family:sans-serif}
 canvas{display:block}
-#menu{
-position:absolute;width:100%;height:100%;
-background:#000c;display:flex;
-flex-direction:column;
-align-items:center;
-justify-content:center;color:white
-}
-button{
-font-size:26px;padding:12px 40px;
-border:none;border-radius:10px;background:#555;
-color:white;cursor:pointer
-}
-#rank{
-position:absolute;top:10px;right:10px;
-background:#0008;padding:10px;border-radius:10px;color:white
-}
-#expBar{
-position:absolute;bottom:10px;left:10px;
-width:280px;height:18px;background:#333;border-radius:10px
-}
+#menu{position:absolute;width:100%;height:100%;background:#000c;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white}
+button{font-size:26px;padding:12px 40px;border:none;border-radius:10px;background:#555;color:white;cursor:pointer}
+#rank{position:absolute;top:10px;right:10px;background:#0008;padding:10px;border-radius:10px;color:white}
+#expBar{position:absolute;bottom:10px;left:10px;width:280px;height:18px;background:#333;border-radius:10px}
 #exp{height:100%;width:0%;background:lime;border-radius:10px}
 </style>
 </head>
-
 <body>
 <div id="menu">
 <h1>Snake.io</h1>
@@ -52,30 +34,17 @@ let camera={x:0,y:0}
 let foods=[],ai=[],particles=[]
 let mouse={x:0,y:0},keys={}
 let exp=0,expMax=100
-
 let aiRespawnQueue=[]
 
-function dist2(a,b){
-let dx=a.x-b.x,dy=a.y-b.y
-return dx*dx+dy*dy
-}
-
+function dist2(a,b){let dx=a.x-b.x,dy=a.y-b.y;return dx*dx+dy*dy}
 function dist(a,b){return Math.sqrt(dist2(a,b))}
 
-const player={
-body:[{x:0,y:0}],
-dir:{x:1,y:0},
-length:150,
-speed:3,
-color1:"lime",
-color2:"yellow"
-}
+const player={body:[{x:0,y:0}],dir:{x:1,y:0},length:150,speed:3,color1:"lime",color2:"yellow"}
 
 function spawnFood(x,y){
 if(x==undefined){x=(Math.random()*MAP*2)-MAP;y=(Math.random()*MAP*2)-MAP}
 foods.push({x,y,life:2000})
 }
-
 for(let i=0;i<400;i++) spawnFood()
 
 function spawnAI(){
@@ -95,7 +64,6 @@ color1:`hsl(${Math.random()*360},70%,50%)`,
 color2:`hsl(${Math.random()*360},70%,70%)`
 })
 }
-
 for(let i=0;i<25;i++) spawnAI()
 
 function moveSnake(s){
@@ -111,12 +79,10 @@ if(len>s.length){s.body=s.body.slice(0,i+2);break}
 function drawSnake(s){
 let h=s.body[0]
 if(h.x<camera.x-200||h.x>camera.x+canvas.width+200||h.y<camera.y-200||h.y>camera.y+canvas.height+200) return
-
 ctx.lineWidth=12;ctx.lineCap="round";ctx.lineJoin="round"
 let g=ctx.createLinearGradient(s.body[0].x-camera.x,s.body[0].y-camera.y,s.body[s.body.length-1].x-camera.x,s.body[s.body.length-1].y-camera.y)
 g.addColorStop(0,s.color1);g.addColorStop(1,s.color2)
-ctx.strokeStyle=g
-ctx.beginPath()
+ctx.strokeStyle=g;ctx.beginPath()
 ctx.moveTo(s.body[0].x-camera.x,s.body[0].y-camera.y)
 for(let p of s.body){ctx.lineTo(p.x-camera.x,p.y-camera.y)}
 ctx.stroke()
@@ -154,35 +120,23 @@ let f=foods[i]
 if(dist2(s.body[0],f)>20000) continue
 let d=dist(s.body[0],f)
 if(d<120){f.x+=(s.body[0].x-f.x)/15;f.y+=(s.body[0].y-f.y)/15}
-if(d<10){
-s.length+=12;exp+=5
-explode(f.x,f.y)
-foods.splice(i,1)
-spawnFood();spawnFood()
-}
+if(d<10){s.length+=12;exp+=5;explode(f.x,f.y);foods.splice(i,1);spawnFood();spawnFood()}
 }
 }
 
 function death(s){
 explode(s.body[0].x,s.body[0].y)
-for(let p of s.body){
-spawnFood(p.x+(Math.random()-0.5)*10,p.y+(Math.random()-0.5)*10)
-}
-if(s===player){
-player.body=[{x:0,y:0}]
-player.length=100
-exp=0
-}else{
-let index=ai.indexOf(s)
-if(index!=-1) ai.splice(index,1)
-aiRespawnQueue.push(120) // 2秒後重生
-}
+for(let p of s.body){spawnFood(p.x+(Math.random()-0.5)*10,p.y+(Math.random()-0.5)*10)}
+if(s===player){player.body=[{x:0,y:0}];player.length=100;exp=0}else{let idx=ai.indexOf(s);if(idx!=-1) ai.splice(idx,1);aiRespawnQueue.push(120)}
 }
 
 function checkDeath(s){
 let h=s.body[0]
+// 撞牆
 if(h.x<-MAP||h.x>MAP||h.y<-MAP||h.y>MAP){death(s)}
+// 撞自己
 for(let i=5;i<s.body.length;i++){if(dist2(h,s.body[i])<64){death(s)}}
+// 撞其他
 for(let other of [player,...ai]){
 if(other===s) continue
 for(let p of other.body){if(dist2(h,p)<64){death(s)}}
@@ -190,28 +144,19 @@ for(let p of other.body){if(dist2(h,p)<64){death(s)}}
 }
 
 function aiBrain(s){
-let head=s.body[0]
-let best,bd=999999
+let head=s.body[0],best,bd=999999
 for(let f of foods){let d=dist(head,f);if(d<bd){bd=d;best=f}}
-if(best){
-let dx=best.x-head.x,dy=best.y-head.y,l=Math.hypot(dx,dy)
-s.dir.x=dx/l;s.dir.y=dy/l
-}
+if(best){let dx=best.x-head.x,dy=best.y-head.y,l=Math.hypot(dx,dy);s.dir.x=dx/l;s.dir.y=dy/l}
 }
 
 function playerControl(){
-let dx=mouse.x+camera.x-player.body[0].x
-let dy=mouse.y+camera.y-player.body[0].y
-let l=Math.hypot(dx,dy)
+let dx=mouse.x+camera.x-player.body[0].x,dy=mouse.y+camera.y-player.body[0].y,l=Math.hypot(dx,dy)
 player.dir.x=dx/l;player.dir.y=dy/l
 player.speed=keys["Shift"]?5:3
 if(keys["Shift"]) player.length-=0.2
 }
 
-function cameraUpdate(){
-camera.x=player.body[0].x-canvas.width/2
-camera.y=player.body[0].y-canvas.height/2
-}
+function cameraUpdate(){camera.x=player.body[0].x-canvas.width/2;camera.y=player.body[0].y-canvas.height/2}
 
 function leaderboard(){
 let all=[player,...ai];all.sort((a,b)=>b.length-a.length)
@@ -226,28 +171,16 @@ function loop(){
 if(!started) return
 ctx.clearRect(0,0,canvas.width,canvas.height)
 playerControl();moveSnake(player);eatFood(player);checkDeath(player)
-
 for(let s of ai){aiBrain(s);moveSnake(s);eatFood(s);checkDeath(s)}
-
-for(let i=foods.length-1;i>=0;i--){
-let f=foods[i];f.life--; if(f.life<=0){foods.splice(i,1);spawnFood();continue} drawFood(f)
-}
-
+for(let i=foods.length-1;i>=0;i--){let f=foods[i];f.life--;if(f.life<=0){foods.splice(i,1);spawnFood();continue}drawFood(f)}
 drawSnake(player);for(let s of ai) drawSnake(s)
 updateParticles();cameraUpdate();leaderboard()
 
 // AI重生計時
-for(let i=aiRespawnQueue.length-1;i>=0;i--){
-aiRespawnQueue[i]--
-if(aiRespawnQueue[i]<=0){spawnAI();aiRespawnQueue.splice(i,1)}
-}
+for(let i=aiRespawnQueue.length-1;i>=0;i--){aiRespawnQueue[i]--;if(aiRespawnQueue[i]<=0){spawnAI();aiRespawnQueue.splice(i,1)}}
 
-exp%=expMax
-document.getElementById("exp").style.width=(exp/expMax*100)+"%"
-
-ctx.strokeStyle="white";ctx.lineWidth=3
-ctx.strokeRect(-MAP-camera.x,-MAP-camera.y,MAP*2,MAP*2)
-
+exp%=expMax;document.getElementById("exp").style.width=(exp/expMax*100)+"%"
+ctx.strokeStyle="white";ctx.lineWidth=3;ctx.strokeRect(-MAP-camera.x,-MAP-camera.y,MAP*2,MAP*2)
 requestAnimationFrame(loop)
 }
 
