@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 磁力巔峰版 (Cap 125k)</title>
+<title>Snake.io 磁力精準版 (Cap 750)</title>
 <style>
     body{margin:0;overflow:hidden;background:#050505;font-family:sans-serif;user-select:none}
     canvas{display:block}
@@ -16,10 +16,10 @@
 <body>
 
 <div id="menu">
-    <h1 style="color:#0f4">SNAKE MAGNET: 125,000</h1>
-    <p style="color:#888">【玩家專屬】磁力：10x 長度 (上限 125,000)</p>
-    <p style="color:#888">長度無限成長 | 寬度上限 100px | 5000分啟動 AI 繼承</p>
-    <button onclick="start()">降臨戰場</button>
+    <h1 style="color:#0f4">SNAKE MAGNET: 750</h1>
+    <p style="color:#888">【玩家專屬】磁力：10x 長度 (上限 750)</p>
+    <p style="color:#888">精準進食判定 | 寬度上限 100px | 長度無限</p>
+    <button onclick="start()">啟動遊戲</button>
 </div>
 
 <div id="score-ui">SCORE: 150</div>
@@ -135,8 +135,8 @@ function loop() {
     camera.zoom += (targetZoom - camera.zoom) * 0.04;
     camera.x = player.body[0].x; camera.y = player.body[0].y;
 
-    // --- 【磁力校準：10x 且上限 125,000】 ---
-    let magnetRange = Math.min(125000, 10 * player.length);
+    // --- 【磁力校準：10x 且上限 750】 ---
+    let magnetRange = Math.min(750, 10 * player.length);
 
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
@@ -144,7 +144,7 @@ function loop() {
         let distSq = dx*dx + dy*dy;
         
         if (distSq < magnetRange * magnetRange) {
-            f.x += dx * 0.4; f.y += dy * 0.4;
+            f.x += dx * 0.45; f.y += dy * 0.45;
             if (distSq < 1000) {
                 player.length += f.val + (player.length * 0.02);
                 foods.splice(i, 1);
