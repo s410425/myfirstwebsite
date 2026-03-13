@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
@@ -58,6 +59,7 @@ background:lime;
 border-radius:10px
 }
 </style>
+
 </head>
 
 <body>
@@ -320,8 +322,20 @@ s.body[0].y+(Math.random()-0.5)*80
 
 }
 
-s.length=100
+if(s===player){
+
+player.body=[{x:0,y:0}]
+player.length=100
 exp=0
+
+}else{
+
+let index=ai.indexOf(s)
+if(index!=-1) ai.splice(index,1)
+
+spawnAI()
+
+}
 
 }
 
@@ -462,13 +476,16 @@ checkDeath(s)
 
 }
 
-for(let f of foods){
+for(let i=foods.length-1;i>=0;i--){
+
+let f=foods[i]
 
 f.life--
 
 if(f.life<=0){
+foods.splice(i,1)
 spawnFood()
-f.life=2000
+continue
 }
 
 drawFood(f)
@@ -512,5 +529,6 @@ addEventListener("keydown",e=>keys[e.key]=true)
 addEventListener("keyup",e=>keys[e.key]=false)
 
 </script>
+
 </body>
 </html>
