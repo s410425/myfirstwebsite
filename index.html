@@ -2,35 +2,38 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 終極華麗版</title>
+<title>Snake.io 究極完全體</title>
 <style>
-    body{margin:0;overflow:hidden;background:#050505;font-family:sans-serif;user-select:none}
+    body{margin:0;overflow:hidden;background:#050505;font-family:'Segoe UI', sans-serif;user-select:none}
     canvas{display:block}
-    #ui{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.7);padding:15px;border-radius:15px;border:1px solid #444;backdrop-filter:blur(5px);pointer-events:none}
-    #score-ui{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#0f4;font-size:22px;font-weight:bold;text-shadow:0 0 10px #0f4;letter-spacing:2px}
-    #menu{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;z-index:100}
-    h1{font-size:60px;margin:0;background:linear-gradient(90deg, #0f4, #0ff);-webkit-background-clip:text;color:transparent}
-    button{font-size:26px;padding:12px 60px;cursor:pointer;background:#0f4;border:none;border-radius:50px;font-weight:bold;margin-top:20px;transition:0.3s}
-    button:hover{transform:scale(1.1);box-shadow:0 0 30px #0f4}
+    #ui-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;color:white}
+    #rank{position:absolute;top:20px;right:20px;background:rgba(0,0,0,0.7);padding:15px;border-radius:12px;border:1px solid #444;backdrop-filter:blur(5px)}
+    #score-display{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);font-size:24px;color:#0f4;font-weight:bold;text-shadow:0 0 10px #0f4}
+    #menu{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;z-index:100}
+    button{font-size:28px;padding:15px 60px;cursor:pointer;background:linear-gradient(45deg, #0f4, #09f);border:none;border-radius:50px;color:white;font-weight:bold;transition:0.3s;box-shadow:0 0 20px rgba(0,255,0,0.3)}
+    button:hover{transform:scale(1.1);box-shadow:0 0 40px rgba(0,255,0,0.5)}
 </style>
 </head>
 <body>
 
 <div id="menu">
-    <h1>SNAKE EVOLUTION</h1>
-    <p style="color:#888">SHIFT 加速 | 按住滑鼠左鍵也可加速</p>
-    <button onclick="start()">進入戰場</button>
+    <h1 style="font-size:60px;margin:0">SNAKE EVOLUTION</h1>
+    <p style="color:#888;letter-spacing:2px">MOUSE TO MOVE | SHIFT TO BOOST</p>
+    <button onclick="start()">START BATTLE</button>
 </div>
 
-<div id="score-ui">LENGTH: 150</div>
-<div id="ui"></div>
+<div id="ui-layer">
+    <div id="rank"></div>
+    <div id="score-display">LENGTH: 150</div>
+</div>
+
 <canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const MAP = 3000;
-const FOOD_MAX = 450;
+const FOOD_MAX = 500;
 const AI_COUNT = 25;
 
 let started = false;
@@ -38,10 +41,7 @@ let camera = {x:0, y:0, zoom:1};
 let foods = [], ai = [], toDie = [], particles = [];
 let mouse = {x:0, y:0, down:false}, keys = {};
 
-function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 window.addEventListener('resize', resize);
 resize();
 
@@ -59,63 +59,56 @@ class Snake {
     update() {
         if (this.dead) return;
 
-        let boosting = (this.isPlayer && (keys["Shift"] || mouse.down)) && this.length > 100;
+        // 加速邏輯
+        let boosting = this.isPlayer && (keys["Shift"] || mouse.down) && this.length > 100;
         this.speed = boosting ? 7.5 : 3.5;
         if (boosting) {
             this.length -= 0.4;
-            // 加速時產生微量粒子（尾跡）
-            if (Math.random() > 0.6) {
-                let tail = this.body[this.body.length-1];
-                particles.push({x:tail.x, y:tail.y, life:1, color:this.color});
-            }
+            if (Math.random() > 0.6) particles.push({x:this.body[this.body.length-1].x, y:this.body[this.body.length-1].y, life:1, color:this.color});
         }
-
         this.length = Math.max(80, this.length);
 
+        // 前進
         let head = {
             x: this.body[0].x + Math.cos(this.angle) * this.speed,
             y: this.body[0].y + Math.sin(this.angle) * this.speed
         };
         this.body.unshift(head);
 
-        let curLen = 0;
+        // 裁切身體長度
+        let cur = 0;
         for (let i = 0; i < this.body.length - 1; i++) {
-            curLen += Math.hypot(this.body[i+1].x - this.body[i].x, this.body[i+1].y - this.body[i].y);
-            if (curLen > this.length) {
-                this.body.splice(i + 1);
-                break;
-            }
+            cur += Math.hypot(this.body[i+1].x - this.body[i].x, this.body[i+1].y - this.body[i].y);
+            if (cur > this.length) { this.body.splice(i + 1); break; }
         }
     }
 
     draw() {
-        let h = this.body[0];
-        // 渲染座標轉換 (含縮放)
-        const toSX = (x) => (x - camera.x) * camera.zoom + canvas.width/2;
-        const toSY = (y) => (y - camera.y) * camera.zoom + canvas.height/2;
+        const toSX = x => (x - camera.x) * camera.zoom + canvas.width/2;
+        const toSY = y => (y - camera.y) * camera.zoom + canvas.height/2;
 
         ctx.strokeStyle = this.color;
         ctx.lineWidth = 22 * camera.zoom;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
-        ctx.shadowBlur = 10 * camera.zoom;
+        ctx.shadowBlur = 12 * camera.zoom;
         ctx.shadowColor = this.color;
         
         ctx.beginPath();
         ctx.moveTo(toSX(this.body[0].x), toSY(this.body[0].y));
         for(let p of this.body) ctx.lineTo(toSX(p.x), toSY(p.y));
         ctx.stroke();
-        ctx.shadowBlur = 0; // 重置陰影避免影響效能
+        ctx.shadowBlur = 0;
 
         // 眼睛
         ctx.fillStyle = "white";
         ctx.beginPath();
-        ctx.arc(toSX(this.body[0].x + Math.cos(this.angle)*8), toSY(this.body[0].y + Math.sin(this.angle)*8), 5*camera.zoom, 0, 7);
+        ctx.arc(toSX(this.body[0].x + Math.cos(this.angle)*8), toSY(this.body[0].y + Math.sin(this.angle)*8), 5 * camera.zoom, 0, 7);
         ctx.fill();
     }
 }
 
-const player = new Snake(0, 0, "#0f4", true);
+let player = new Snake(0, 0, "#0f4", true);
 
 function spawnFood(x, y, big = false, color = null) {
     foods.push({
@@ -136,37 +129,25 @@ for(let i=0; i<AI_COUNT; i++) spawnAI();
 
 function loop() {
     if (!started) return;
-    ctx.fillStyle = "#050505";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 動態視角縮放：越長看得越遠
-    let targetZoom = Math.max(0.4, 1 - (player.length / 6000));
+    // 1. 鏡頭與縮放 (越長看得越遠)
+    let targetZoom = Math.max(0.4, 1 - (player.length / 8000));
     camera.zoom += (targetZoom - camera.zoom) * 0.05;
     camera.x = player.body[0].x;
     camera.y = player.body[0].y;
 
-    // 畫網格
-    ctx.strokeStyle = "#111";
-    ctx.lineWidth = 1;
+    // 2. 網格
+    ctx.strokeStyle = "#151515";
     let step = 150 * camera.zoom;
     for(let x = (canvas.width/2 - camera.x * camera.zoom) % step; x < canvas.width; x += step) {
         ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke();
     }
-
-    // 粒子系統 (加速尾跡)
-    for(let i=particles.length-1; i>=0; i--){
-        let p = particles[i];
-        p.life -= 0.02;
-        if(p.life <= 0) particles.splice(i,1);
-        else {
-            ctx.fillStyle = p.color;
-            ctx.globalAlpha = p.life;
-            ctx.fillRect((p.x-camera.x)*camera.zoom + canvas.width/2, (p.y-camera.y)*camera.zoom + canvas.height/2, 4, 4);
-        }
+    for(let y = (canvas.height/2 - camera.y * camera.zoom) % step; y < canvas.height; y += step) {
+        ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
     }
-    ctx.globalAlpha = 1;
 
-    // 食物邏輯
+    // 3. 食物系統 (磁鐵回歸)
     let snakes = [player, ...ai];
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
@@ -181,25 +162,32 @@ function loop() {
 
         snakes.forEach(s => {
             let dx = s.body[0].x - f.x, dy = s.body[0].y - f.y;
-            if (dx*dx + dy*dy < 600) {
-                s.length += f.val;
-                foods.splice(i, 1);
-                if (!f.big) spawnFood();
+            let distSq = dx*dx + dy*dy;
+            let magRange = 120 + (s.length / 20); // 磁力範圍
+
+            if (distSq < magRange * magRange) {
+                f.x += dx * 0.2; f.y += dy * 0.2; // 磁鐵吸入
+                if (distSq < 500) {
+                    s.length += f.val;
+                    foods.splice(i, 1);
+                    if (!f.big) spawnFood();
+                }
             }
         });
     }
 
-    // 更新與 AI 碰撞
+    // 4. 更新與碰撞檢測 (自撞、互撞、邊界)
     player.angle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
     player.update();
+    if (Math.abs(player.body[0].x) > MAP || Math.abs(player.body[0].y) > MAP) player.dead = true;
 
     ai.forEach(s => {
-        if (Math.random() > 0.97) {
+        if (Math.random() > 0.96) {
             let f = foods[Math.floor(Math.random()*foods.length)];
             s.angle = Math.atan2(f.y - s.body[0].y, f.x - s.body[0].x);
         }
-        if (Math.abs(s.body[0].x) > MAP-100 || Math.abs(s.body[0].y) > MAP-100) s.angle += 0.2;
         s.update();
+        if (Math.abs(s.body[0].x) > MAP || Math.abs(s.body[0].y) > MAP) s.dead = true;
 
         snakes.forEach(other => {
             if (other === s || other.dead) return;
@@ -211,43 +199,56 @@ function loop() {
         if (s.dead) toDie.push(s);
     });
 
-    // 玩家自撞檢測 (當長度夠長時)
-    for(let j=15; j<player.body.length; j+=4){
-        let dx = player.body[0].x - player.body[j].x, dy = player.body[0].y - player.body[j].y;
-        if(dx*dx + dy*dy < 400) { player.length = 150; player.body=[{x:0,y:0}]; }
+    // 玩家被撞檢測
+    ai.forEach(other => {
+        for (let j = 0; j < other.body.length; j += 3) {
+            let dx = player.body[0].x - other.body[j].x, dy = player.body[0].y - other.body[j].y;
+            if (dx*dx + dy*dy < 450) player.dead = true;
+        }
+    });
+
+    // 5. 處理死亡
+    if (player.dead) {
+        for(let i=0; i<30; i++) spawnFood(player.body[0].x+(Math.random()-0.5)*100, player.body[0].y+(Math.random()-0.5)*100, true, player.color);
+        player = new Snake(0, 0, "#0f4", true);
     }
 
-    // 死亡噴發
     toDie.forEach(s => {
-        let count = Math.min(60, Math.floor(s.length/15));
+        let count = Math.min(50, Math.floor(s.length/15));
         for(let k=0; k<count; k++) {
             let p = s.body[Math.floor(Math.random()*s.body.length)];
-            spawnFood(p.x + (Math.random()-0.5)*80, p.y + (Math.random()-0.5)*80, true, s.color);
+            spawnFood(p.x+(Math.random()-0.5)*80, p.y+(Math.random()-0.5)*80, true, s.color);
         }
         ai.splice(ai.indexOf(s), 1);
         spawnAI();
     });
     toDie = [];
 
+    // 6. 渲染
+    for(let i=particles.length-1; i>=0; i--){
+        let p = particles[i]; p.life -= 0.03;
+        if(p.life <= 0) particles.splice(i,1);
+        else {
+            ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+            ctx.fillRect((p.x-camera.x)*camera.zoom+canvas.width/2, (p.y-camera.y)*camera.zoom+canvas.height/2, 4, 4);
+        }
+    }
+    ctx.globalAlpha = 1;
     ai.forEach(a => a.draw());
     player.draw();
 
-    // 小地圖
-    const mSize = 150, mPad = 20;
-    ctx.fillStyle = "rgba(0,0,0,0.7)";
-    ctx.fillRect(canvas.width - mSize - mPad, canvas.height - mSize - mPad, mSize, mSize);
-    ctx.strokeStyle = "#444";
-    ctx.strokeRect(canvas.width - mSize - mPad, canvas.height - mSize - mPad, mSize, mSize);
-    
-    const mScale = mSize / (MAP * 2);
-    ctx.fillStyle = "#0f4";
-    ctx.fillRect(canvas.width - mSize/2 - mPad + player.body[0].x*mScale - 2, canvas.height - mSize/2 - mPad + player.body[0].y*mScale - 2, 4, 4);
-    ctx.fillStyle = "red";
-    ai.forEach(a => ctx.fillRect(canvas.width - mSize/2 - mPad + a.body[0].x*mScale - 1, canvas.height - mSize/2 - mPad + a.body[0].y*mScale - 1, 2, 2));
+    // 7. 小地圖
+    const mS = 150, mP = 20;
+    ctx.fillStyle = "rgba(0,0,0,0.8)";
+    ctx.fillRect(canvas.width - mS - mP, canvas.height - mS - mP, mS, mS);
+    ctx.strokeStyle = "#444"; ctx.strokeRect(canvas.width - mS - mP, canvas.height - mS - mP, mS, mS);
+    const sc = mS / (MAP * 2);
+    ctx.fillStyle = "#0f4"; ctx.fillRect(canvas.width - mS/2 - mP + player.body[0].x*sc - 2, canvas.height - mS/2 - mP + player.body[0].y*sc - 2, 4, 4);
+    ctx.fillStyle = "red"; ai.forEach(a => ctx.fillRect(canvas.width - mS/2 - mP + a.body[0].x*sc - 1, canvas.height - mS/2 - mP + a.body[0].y*sc - 1, 2, 2));
 
-    document.getElementById("score-ui").innerText = `LENGTH: ${Math.floor(player.length)}`;
+    document.getElementById("score-display").innerText = `LENGTH: ${Math.floor(player.length)}`;
     let ranking = [player, ...ai].sort((a,b)=>b.length - a.length).slice(0, 5);
-    document.getElementById("ui").innerHTML = "<b>LEADERBOARD</b><br>" + ranking.map((s,i)=>`${i+1}. ${s.isPlayer?'YOU':'AI'} - ${Math.floor(s.length)}`).join("<br>");
+    document.getElementById("rank").innerHTML = "<b>TOP 5 HUNTERS</b><br>" + ranking.map((s,i)=>`${i+1}. ${s.isPlayer?'YOU':'AI'} - ${Math.floor(s.length)}`).join("<br>");
 
     requestAnimationFrame(loop);
 }
