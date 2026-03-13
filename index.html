@@ -2,24 +2,26 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Snake.io 終極修正版</title>
+<title>Snake.io 究極穩定版</title>
 <style>
     body{margin:0;overflow:hidden;background:#050505;font-family:sans-serif;user-select:none}
     canvas{display:block}
-    #ui{position:absolute;top:20px;left:20px;color:white;background:rgba(0,0,0,0.5);padding:15px;border-radius:10px;pointer-events:none}
-    #rank{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.5);padding:15px;border-radius:10px}
+    #rank{position:absolute;top:20px;right:20px;color:white;background:rgba(0,0,0,0.6);padding:15px;border-radius:10px;font-family:monospace;pointer-events:none;border:1px solid #333}
+    #score-ui{position:absolute;bottom:20px;left:20px;color:#0f4;font-size:24px;font-weight:bold;text-shadow:0 0 10px #0f4}
     #menu{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;z-index:100}
-    button{font-size:24px;padding:10px 40px;cursor:pointer;background:#0f4;border:none;border-radius:5px}
+    button{font-size:28px;padding:12px 60px;cursor:pointer;background:#0f4;border:none;border-radius:50px;font-weight:bold;transition:0.3s}
+    button:hover{transform:scale(1.1);box-shadow:0 0 30px #0f4}
 </style>
 </head>
 <body>
 
 <div id="menu">
-    <h1>CYBER SNAKE FIX</h1>
-    <button onclick="start()">START</button>
+    <h1>CYBER SNAKE PRO</h1>
+    <p>滑鼠轉向 | Shift 加速 | 擊敗 AI 奪取能量</p>
+    <button onclick="start()">開始戰鬥</button>
 </div>
 
-<div id="ui">LENGTH: <span id="score">0</span></div>
+<div id="score-ui">LENGTH: 150</div>
 <div id="rank"></div>
 <canvas id="game"></canvas>
 
@@ -27,15 +29,18 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const MAP = 3000;
-const FOOD_MAX = 500;
-const AI_TARGET_COUNT = 30; // 增加 AI 數量
+const FOOD_MAX = 400;
+const AI_COUNT = 25;
 
 let started = false;
 let camera = {x:0, y:0};
 let foods = [], ai = [], toDie = [];
 let mouse = {x:0, y:0}, keys = {};
 
-function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
 window.addEventListener('resize', resize);
 resize();
 
@@ -45,32 +50,30 @@ class Snake {
         this.length = 150;
         this.color = color;
         this.isPlayer = isPlayer;
-        this.speed = 4;
+        this.speed = 3.5;
         this.angle = Math.random() * Math.PI * 2;
+        this.dead = false;
     }
 
     update() {
-        // 只有玩家按下 Shift 或 Space 且長度夠時才加速並扣分
-        let isBoosting = this.isPlayer && (keys["Shift"] || keys[" "]);
-        
-        if (isBoosting && this.length > 60) {
-            this.speed = 8;
-            this.length -= 0.5; // 玩家加速才掉分
-        } else {
-            this.speed = 4;
-        }
+        if (this.dead) return;
 
-        // 確保長度不為負數
-        this.length = Math.max(50, this.length);
+        // 只有玩家加速會扣分，且有長度限制
+        let isBoosting = this.isPlayer && keys["Shift"] && this.length > 100;
+        this.speed = isBoosting ? 7 : 3.5;
+        if (isBoosting) this.length -= 0.3;
 
-        // 移動邏輯
+        // 強制長度底線
+        this.length = Math.max(80, this.length);
+
+        // 移動
         let head = {
             x: this.body[0].x + Math.cos(this.angle) * this.speed,
             y: this.body[0].y + Math.sin(this.angle) * this.speed
         };
         this.body.unshift(head);
 
-        // 依照長度裁切身體
+        // 裁切身體
         let curLen = 0;
         for (let i = 0; i < this.body.length - 1; i++) {
             curLen += Math.hypot(this.body[i+1].x - this.body[i].x, this.body[i+1].y - this.body[i].y);
@@ -82,25 +85,37 @@ class Snake {
     }
 
     draw() {
+        // 畫面過濾：只畫鏡頭內的蛇
+        let h = this.body[0];
+        if (h.x < camera.x - 500 || h.x > camera.x + canvas.width + 500) return;
+
         ctx.strokeStyle = this.color;
-        ctx.lineWidth = 20;
+        ctx.lineWidth = 22;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.beginPath();
         ctx.moveTo(this.body[0].x - camera.x, this.body[0].y - camera.y);
         for(let p of this.body) ctx.lineTo(p.x - camera.x, p.y - camera.y);
         ctx.stroke();
+
+        // 畫眼睛
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.arc(this.body[0].x - camera.x + Math.cos(this.angle)*8, this.body[0].y - camera.y + Math.sin(this.angle)*8, 5, 0, 7);
+        ctx.fill();
     }
 }
 
 const player = new Snake(0, 0, "#0f4", true);
 
-function spawnFood() {
+function spawnFood(x, y, isBig = false, color = null) {
     foods.push({
-        x: Math.random() * MAP * 2 - MAP,
-        y: Math.random() * MAP * 2 - MAP,
-        val: 12,
-        color: `hsl(${Math.random() * 360}, 100%, 50%)`
+        x: x ?? (Math.random() * MAP * 2 - MAP),
+        y: y ?? (Math.random() * MAP * 2 - MAP),
+        val: isBig ? 30 : 12,
+        size: isBig ? 7 : 4,
+        color: color ?? `hsl(${Math.random() * 360}, 100%, 50%)`,
+        isBig: isBig
     });
 }
 for(let i=0; i<FOOD_MAX; i++) spawnFood();
@@ -108,83 +123,100 @@ for(let i=0; i<FOOD_MAX; i++) spawnFood();
 function spawnAI() {
     let x = Math.random() * MAP * 2 - MAP;
     let y = Math.random() * MAP * 2 - MAP;
-    ai.push(new Snake(x, y, `hsl(${Math.random()*360}, 70%, 60%)`));
+    ai.push(new Snake(x, y, `hsl(${Math.random()*360}, 80%, 60%)`));
 }
-for(let i=0; i<AI_TARGET_COUNT; i++) spawnAI();
+for(let i=0; i<AI_COUNT; i++) spawnAI();
 
 function loop() {
     if (!started) return;
     ctx.fillStyle = "#050505";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    camera.x = player.body[0].x - canvas.width/2;
-    camera.y = player.body[0].y - canvas.height/2;
+    // 平滑鏡頭
+    camera.x += (player.body[0].x - canvas.width/2 - camera.x) * 0.1;
+    camera.y += (player.body[0].y - canvas.height/2 - camera.y) * 0.1;
 
-    // 食物邏輯 (所有人都能吃，且會長大)
-    let allSnakes = [player, ...ai];
+    // 食物邏輯
+    let snakes = [player, ...ai];
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
-        // 簡單螢幕裁切繪製
-        if (f.x > camera.x && f.x < camera.x + canvas.width && f.y > camera.y && f.y < camera.y + canvas.height) {
+        
+        // 繪製
+        if (f.x > camera.x - 20 && f.x < camera.x + canvas.width + 20) {
             ctx.fillStyle = f.color;
-            ctx.beginPath(); ctx.arc(f.x - camera.x, f.y - camera.y, 4, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc(f.x - camera.x, f.y - camera.y, f.size, 0, 7); ctx.fill();
+            if(f.isBig) { ctx.strokeStyle="white"; ctx.lineWidth=2; ctx.stroke(); }
         }
 
-        allSnakes.forEach(s => {
+        // 吃食物
+        snakes.forEach(s => {
+            if (s.dead) return;
             let dx = s.body[0].x - f.x, dy = s.body[0].y - f.y;
-            if (dx*dx + dy*dy < 400) { // 吃到食物
+            if (dx*dx + dy*dy < 500) {
                 s.length += f.val;
                 foods.splice(i, 1);
-                spawnFood();
+                if (!f.isBig) spawnFood(); // 只有小食物會自動補位
             }
         });
     }
 
-    // 玩家轉向
-    let targetAngle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
-    player.angle = targetAngle;
+    // 玩家更新
+    player.angle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
     player.update();
 
-    // AI 邏輯
-    ai.forEach((s, idx) => {
-        // AI 隨機轉向尋找食物
-        if (Math.random() > 0.98) s.angle += (Math.random() - 0.5) * 2;
+    // AI 更新
+    ai.forEach(s => {
+        // AI 智慧：機率性轉向最近的食物
+        if (Math.random() > 0.95) {
+            let f = foods[Math.floor(Math.random()*foods.length)];
+            s.angle = Math.atan2(f.y - s.body[0].y, f.x - s.body[0].x);
+        }
+        // 邊界回頭
+        if (Math.abs(s.body[0].x) > MAP-100 || Math.abs(s.body[0].y) > MAP-100) s.angle += 0.2;
+        
         s.update();
 
-        // 碰撞檢測 (AI 撞到別人會死)
-        allSnakes.forEach(target => {
-            if (target === s) return;
-            for (let j = 0; j < target.body.length; j += 5) {
-                let dx = s.body[0].x - target.body[j].x;
-                let dy = s.body[0].y - target.body[j].y;
-                if (dx*dx + dy*dy < 400) {
-                    if (!toDie.includes(s)) toDie.push(s);
-                }
+        // 碰撞檢測：頭撞別人的身體
+        snakes.forEach(other => {
+            if (other === s || other.dead) return;
+            for (let j = 0; j < other.body.length; j += 4) {
+                let dx = s.body[0].x - other.body[j].x;
+                let dy = s.body[0].y - other.body[j].y;
+                if (dx*dx + dy*dy < 400) s.dead = true;
             }
         });
+        if (s.dead) toDie.push(s);
     });
 
-    // 處理死亡與補位
+    // 處理死亡噴發能量
     toDie.forEach(s => {
-        let index = ai.indexOf(s);
-        if (index > -1) ai.splice(index, 1);
-        spawnAI(); // 立即補一條新的 AI
+        let dropAmt = Math.floor(s.length / 20);
+        for(let k=0; k<dropAmt; k++) {
+            let p = s.body[Math.floor(Math.random()*s.body.length)];
+            spawnFood(p.x + (Math.random()-0.5)*50, p.y + (Math.random()-0.5)*50, true, s.color);
+        }
+        if (s.isPlayer) {
+            player.body = [{x:0,y:0}]; player.length = 150; player.dead = false;
+        } else {
+            ai.splice(ai.indexOf(s), 1);
+            spawnAI();
+        }
     });
     toDie = [];
 
-    // 繪製
+    // 繪製蛇
     ai.forEach(a => a.draw());
     player.draw();
 
-    // 更新 UI
-    document.getElementById("score").innerText = Math.floor(player.length);
-    let ranking = [player, ...ai].sort((a,b)=>b.length - a.length).slice(0, 5);
-    document.getElementById("rank").innerHTML = "RANKING<br>" + ranking.map((s,i)=>`${i+1}. ${s.isPlayer?'YOU':'AI'} (${Math.floor(s.length)})`).join("<br>");
+    // UI
+    document.getElementById("score-ui").innerText = `LENGTH: ${Math.floor(player.length)}`;
+    let ranking = [player, ...ai].sort((a,b)=>b.length - a.length).slice(0, 6);
+    document.getElementById("rank").innerHTML = "LEADERBOARD<br><hr>" + ranking.map((s,i)=>`${i+1}. ${s.isPlayer?'YOU':(s.length>1000?'BOSS':'AI')} - ${Math.floor(s.length)}`).join("<br>");
 
     requestAnimationFrame(loop);
 }
 
-function start() { started = true; document.getElementById("menu").style.display="none"; loop(); }
+function start() { started=true; document.getElementById("menu").style.display="none"; loop(); }
 addEventListener("mousemove", e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 addEventListener("keydown", e => keys[e.key] = true);
 addEventListener("keyup", e => keys[e.key] = false);
