@@ -3,23 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Snake.io Arena - Advanced AI Edition</title>
+    <title>Snake.io Arena - The Complete Version</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; user-select: none; touch-action: none; }
         canvas { display: block; }
+
+        /* UI 層級 */
         #ui-layer { pointer-events: none; position: absolute; inset: 0; z-index: 100; color: white; }
         #ui-layer * { pointer-events: auto; }
+
         #leaderboard { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px; border: 1px solid #0f4; min-width: 180px; font-size: 14px; }
         .rank-item { display: flex; justify-content: space-between; margin-bottom: 5px; }
         .is-me { color: #0f4; font-weight: bold; text-shadow: 0 0 5px #0f4; }
+
         #stats { position: absolute; top: 15px; left: 15px; }
         #history-box { background: rgba(20,20,20,0.9); padding: 10px; border-radius: 8px; border: 1px solid #444; font-size: 12px; margin-bottom: 10px; width: 160px; }
         #current-score { font-size: 32px; font-weight: bold; color: #0f4; text-shadow: 0 0 10px #0f4; }
+
         #minimap-ui { position: absolute; bottom: 20px; right: 20px; width: 160px; height: 160px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.3); border-radius: 10px; overflow: hidden; }
         #m-canvas { width: 100%; height: 100%; }
+
         #skills { position: absolute; bottom: 20px; left: 20px; display: flex; flex-direction: column; gap: 10px; }
         .skill-box { width: 200px; background: rgba(0,0,0,0.8); border: 1px solid #555; padding: 10px; border-radius: 8px; position: relative; }
         .cd-bar { position: absolute; bottom: 0; left: 0; height: 4px; background: #f0f; width: 0%; transition: width 0.1s linear; }
+
+        /* 手機控制器 (加回來了！) */
+        #joystick { position: absolute; bottom: 40px; left: 40px; width: 130px; height: 130px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.2); border-radius: 50%; display: none; }
+        #stick { position: absolute; top: 40px; left: 40px; width: 50px; height: 50px; background: #0f4; border-radius: 50%; opacity: 0.5; }
+        #mobile-btns { position: absolute; bottom: 30px; right: 200px; display: none; flex-direction: column; gap: 15px; z-index: 200; }
+        .m-btn { width: 75px; height: 75px; background: rgba(0,255,0,0.1); border: 2px solid #0f4; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; pointer-events: auto; }
+
         #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.98); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
         #start-btn { margin-top: 30px; padding: 20px 80px; font-size: 28px; background: #0f4; border: none; font-weight: bold; border-radius: 50px; cursor: pointer; box-shadow: 0 0 30px rgba(0,255,0,0.5); }
     </style>
@@ -38,7 +51,13 @@
         <div class="skill-box">磁力奪取 [Q] <div id="cd-syphon" class="cd-bar"></div></div>
         <div class="skill-box">時空緩速 [R-CLICK] <div id="cd-warp" class="cd-bar"></div></div>
     </div>
+    <div id="mobile-btns">
+        <div class="m-btn" id="m-boost">加速</div>
+        <div class="m-btn" id="m-blink">瞬移</div>
+    </div>
 </div>
+
+<div id="joystick"><div id="stick"></div></div>
 
 <div id="overlay">
     <h1 style="color:white; font-size: 50px; letter-spacing: 10px;">SNAKE <span style="color:#0f4">ARENA</span></h1>
@@ -56,7 +75,9 @@ const WORLD = 6000;
 const GRID_SIZE = 100;
 let started = false, player, foods = [], bots = [];
 let mouse = {x:0, y:0, down:false, right:false}, keys = {};
+let joystick = {active:false, ang:0, boost:false};
 let cd = {blink:0, syphon:0, warp:100};
+let isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 class Snake {
     constructor(x, y, color, isPlayer = false, len = 300) {
@@ -76,29 +97,23 @@ class Snake {
 
         if(!this.isPlayer) {
             let h = this.body[0];
-            
-            // --- AI 智商強化 ---
-            
-            // 1. 避障偵測：探測前方是否有障礙物
             let obstacleFound = false;
             let detectDist = 200 + (this.len / 100);
             let checkX = h.x + Math.cos(this.ang) * detectDist;
             let checkY = h.y + Math.sin(this.ang) * detectDist;
 
-            // 避開邊界
-            if (Math.abs(checkX) > WORLD - 200 || Math.abs(checkY) > WORLD - 200) {
+            if (Math.abs(checkX) > WORLD - 300 || Math.abs(checkY) > WORLD - 300) {
                 this.ang += 0.2;
                 obstacleFound = true;
             }
 
-            // 避開其他蛇的身體
             if (!obstacleFound) {
                 let allSnakes = [player, ...bots];
                 for (let s of allSnakes) {
                     if (s === this || s.dead) continue;
-                    for (let i = 0; i < s.body.length; i += 15) {
-                        if (Math.hypot(checkX - s.body[i].x, checkY - s.body[i].y) < s.r + 50) {
-                            this.ang += 0.3; // 轉向
+                    for (let i = 0; i < s.body.length; i += 20) {
+                        if (Math.hypot(checkX - s.body[i].x, checkY - s.body[i].y) < s.r + 60) {
+                            this.ang += 0.35;
                             obstacleFound = true;
                             break;
                         }
@@ -107,9 +122,8 @@ class Snake {
                 }
             }
 
-            // 2. 獵食邏輯：如果前方沒危險，尋找最近的食物
-            if (!obstacleFound && Math.random() > 0.8) {
-                let nearest = null, minDist = 600;
+            if (!obstacleFound && Math.random() > 0.85) {
+                let nearest = null, minDist = 500;
                 foods.forEach(f => {
                     let d = Math.hypot(h.x - f.x, h.y - f.y);
                     if (d < minDist) { minDist = d; nearest = f; }
@@ -119,12 +133,12 @@ class Snake {
                     let diff = targetAng - this.ang;
                     while (diff < -Math.PI) diff += Math.PI * 2;
                     while (diff > Math.PI) diff -= Math.PI * 2;
-                    this.ang += diff * 0.1;
+                    this.ang += diff * 0.12;
                 }
             }
         }
 
-        let boost = (this.isPlayer && (mouse.down || keys['Shift'])) && this.len > 500;
+        let boost = (this.isPlayer && (mouse.down || joystick.boost || keys['Shift'])) && this.len > 500;
         let speed = (boost ? 9 : 4.8) * (isSlow && !this.isPlayer ? 0.35 : 1);
         if(boost) this.len -= 1.8;
 
@@ -159,20 +173,6 @@ class Snake {
     }
 }
 
-function drawGrid(camX, camY, zoom) {
-    ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = 1;
-    let sX = Math.floor((camX - canvas.width/2/zoom)/GRID_SIZE)*GRID_SIZE;
-    let sY = Math.floor((camY - canvas.height/2/zoom)/GRID_SIZE)*GRID_SIZE;
-    for(let x=sX; x < camX + canvas.width/2/zoom; x+=GRID_SIZE) {
-        ctx.beginPath(); ctx.moveTo((x-camX)*zoom+canvas.width/2, 0); ctx.lineTo((x-camX)*zoom+canvas.width/2, canvas.height); ctx.stroke();
-    }
-    for(let y=sY; y < camY + canvas.height/2/zoom; y+=GRID_SIZE) {
-        ctx.beginPath(); ctx.moveTo(0, (y-camY)*zoom+canvas.height/2); ctx.lineTo(canvas.width, (y-camY)*zoom+canvas.height/2); ctx.stroke();
-    }
-    ctx.strokeStyle = "#ff0000"; ctx.lineWidth = 5 * zoom;
-    ctx.strokeRect((-WORLD - camX)*zoom + canvas.width/2, (-WORLD - camY)*zoom + canvas.height/2, WORLD*2*zoom, WORLD*2*zoom);
-}
-
 function loop() {
     if(!started) return;
     let isWarp = (mouse.right || keys['r']) && cd.warp > 0;
@@ -184,28 +184,36 @@ function loop() {
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
     const head = player.body[0], zoom = Math.max(0.2, 1.15 - player.len/22000);
-    drawGrid(head.x, head.y, zoom);
+    
+    // 背景網格
+    ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = 1;
+    let sX = Math.floor((head.x - canvas.width/2/zoom)/GRID_SIZE)*GRID_SIZE;
+    let sY = Math.floor((head.y - canvas.height/2/zoom)/GRID_SIZE)*GRID_SIZE;
+    for(let x=sX; x < head.x + canvas.width/2/zoom; x+=GRID_SIZE) {
+        ctx.beginPath(); ctx.moveTo((x-head.x)*zoom+canvas.width/2, 0); ctx.lineTo((x-head.x)*zoom+canvas.width/2, canvas.height); ctx.stroke();
+    }
+    for(let y=sY; y < head.y + canvas.height/2/zoom; y+=GRID_SIZE) {
+        ctx.beginPath(); ctx.moveTo(0, (y-head.y)*zoom+canvas.height/2); ctx.lineTo(canvas.width, (y-head.y)*zoom+canvas.height/2); ctx.stroke();
+    }
 
-    if(!isMobile()) player.ang = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
+    // 玩家轉向
+    if(joystick.active) player.ang = joystick.ang;
+    else if(!isMobileDevice) player.ang = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
+    
     player.update(false);
     if(Math.abs(head.x) > WORLD || Math.abs(head.y) > WORLD) player.dead = true;
 
-    // AI 補充
     while(bots.length < 25) {
-        let a = Math.random() * 6.28, dist = 1500 + Math.random() * 500;
-        bots.push(new Snake(head.x + Math.cos(a)*dist, head.y + Math.sin(a)*dist, `hsl(${Math.random()*360},70%,60%)`, false, 300 + Math.random()*2000));
+        let a = Math.random() * 6.28, dist = 1800 + Math.random() * 500;
+        bots.push(new Snake(head.x + Math.cos(a)*dist, head.y + Math.sin(a)*dist, `hsl(${Math.random()*360},70%,60%)`, false, 300 + Math.random()*3000));
     }
 
-    // --- 核心碰撞判定：包含 AI 互撞 ---
+    // 碰撞核心
     bots.forEach((b, bi) => {
         b.update(isWarp);
-        
-        // 1. AI 撞 玩家身體
         for(let i=0; i < player.body.length; i+=10) {
             if(Math.hypot(b.body[0].x - player.body[i].x, b.body[0].y - player.body[i].y) < player.r * 0.9) { b.dead = true; break; }
         }
-
-        // 2. AI 撞 其他 AI 身體
         if(!b.dead) {
             for(let other of bots) {
                 if(b === other) continue;
@@ -215,11 +223,9 @@ function loop() {
                 if(b.dead) break;
             }
         }
-
-        // 3. 玩家撞 AI 身體
-        if(Date.now() - player.birth > 2000) {
+        if(!player.dead && Date.now() - player.birth > 2000) {
             for(let i=0; i < b.body.length; i+=10) {
-                if(Math.hypot(head.x - b.body[i].x, head.y - b.body[i].y) < b.r * 0.9) { player.dead = true; }
+                if(Math.hypot(head.x - b.body[i].x, head.y - b.body[i].y) < b.r * 0.9) { player.dead = true; break; }
             }
         }
 
@@ -232,12 +238,11 @@ function loop() {
         }
     });
 
-    // 食物邏輯
     foods.forEach((f, fi) => {
         let d = Math.hypot(head.x - f.x, head.y - f.y);
         if(d < 600) {
             f.x += (head.x - f.x) * 0.15; f.y += (head.y - f.y) * 0.15;
-            if(d < player.r) { player.len += (f.v / (1 + player.len/10000)); foods.splice(fi, 1); }
+            if(d < player.r) { player.len += (f.v / (1 + player.len/12000)); foods.splice(fi, 1); }
         }
         let sx = (f.x-head.x)*zoom+canvas.width/2, sy = (f.y-head.y)*zoom+canvas.height/2;
         if(sx > 0 && sx < canvas.width && sy > 0 && sy < canvas.height) {
@@ -248,7 +253,7 @@ function loop() {
 
     player.draw(head.x, head.y, zoom);
 
-    // UI
+    // UI 更新
     document.getElementById("current-score").innerText = Math.floor(player.len);
     let top = [player, ...bots].sort((a,b) => b.len - a.len).slice(0, 10);
     document.getElementById("leaderboard").innerHTML = "<b>Ranking</b><hr>" + top.map((s,i) => `<div class="rank-item ${s === player ? 'is-me' : ''}"><span>#${i+1} ${s.name}</span><span>${Math.floor(s.len)}</span></div>`).join("");
@@ -268,36 +273,22 @@ function loop() {
 function init() {
     started = true;
     document.getElementById("overlay").style.display = "none";
+    if(isMobileDevice) {
+        document.getElementById("joystick").style.display = "block";
+        document.getElementById("mobile-btns").style.display = "flex";
+    }
     player = new Snake(0, 0, "#0f4", true);
     for(let i=0; i<400; i++) foods.push({x:(Math.random()-0.5)*WORLD*2, y:(Math.random()-0.5)*WORLD*2, v:50, c:`hsl(${Math.random()*360},100%,70%)`});
     loop();
 }
 
-function saveRecord(s) {
-    let h = JSON.parse(localStorage.getItem('snk_history') || '[]');
-    h.push({n: player.name, s: s});
-    localStorage.setItem('snk_history', JSON.stringify(h.sort((a,b)=>b.s-a.s).slice(0, 5)));
-}
+// 技能
+function doBlink() { if(cd.blink <= 0) { player.body.forEach(p => { p.x += Math.cos(player.ang)*800; p.y += Math.sin(player.ang)*800; }); cd.blink = 5000; } }
+function doSyphon() { if(cd.syphon <= 0) { let t = bots.sort((a,b)=>b.len-a.len)[0]; if(t) { t.len *= 0.6; player.len += 1500; cd.syphon = 15000; } } }
 
-function loadHistory() {
-    let h = JSON.parse(localStorage.getItem('snk_history') || '[]');
-    document.getElementById("h-list").innerHTML = h.map(r => `<div>${r.n}: ${r.s}</div>`).join("") || "尚無紀錄";
-}
-
-function doBlink() {
-    if(cd.blink <= 0) {
-        player.body.forEach(p => { p.x += Math.cos(player.ang)*800; p.y += Math.sin(player.ang)*800; });
-        cd.blink = 5000;
-    }
-}
-function doSyphon() {
-    if(cd.syphon <= 0) {
-        let target = bots.sort((a,b)=>b.len-a.len)[0];
-        if(target) { target.len *= 0.6; player.len += 1500; cd.syphon = 15000; }
-    }
-}
-
-function isMobile() { return /iPhone|iPad|Android/i.test(navigator.userAgent); }
+// 儲存與事件
+function saveRecord(s) { let h = JSON.parse(localStorage.getItem('snk_history') || '[]'); h.push({n: player.name, s: s}); localStorage.setItem('snk_history', JSON.stringify(h.sort((a,b)=>b.s-a.s).slice(0, 5))); }
+function loadHistory() { let h = JSON.parse(localStorage.getItem('snk_history') || '[]'); document.getElementById("h-list").innerHTML = h.map(r => `<div>${r.n}: ${r.s}</div>`).join("") || "尚無紀錄"; }
 
 window.onkeydown = (e) => { keys[e.key] = true; if(e.code === 'Space') doBlink(); if(e.key.toLowerCase() === 'q') doSyphon(); };
 window.onkeyup = (e) => keys[e.key] = false;
@@ -305,6 +296,23 @@ window.onmousedown = (e) => { if(e.button===0) mouse.down=true; if(e.button===2)
 window.onmouseup = () => { mouse.down=false; mouse.right=false; };
 window.onmousemove = (e) => { mouse.x = e.clientX; mouse.y = e.clientY; };
 window.oncontextmenu = (e) => e.preventDefault();
+
+// 手機觸控修復
+canvas.addEventListener("touchstart", e => { if(e.touches[0].clientX < canvas.width/2) { joystick.active=true; moveJoystick(e.touches[0]); } }, {passive:false});
+canvas.addEventListener("touchmove", e => { if(joystick.active) { moveJoystick(e.touches[0]); e.preventDefault(); } }, {passive:false});
+canvas.addEventListener("touchend", () => joystick.active=false);
+document.getElementById("m-boost").addEventListener("touchstart", (e) => { joystick.boost = true; e.preventDefault(); });
+document.getElementById("m-boost").addEventListener("touchend", () => joystick.boost = false);
+document.getElementById("m-blink").addEventListener("touchstart", (e) => { doBlink(); e.preventDefault(); });
+
+function moveJoystick(t) {
+    let r = document.getElementById("joystick").getBoundingClientRect();
+    let dx = t.clientX - (r.left + 65), dy = t.clientY - (r.top + 65);
+    joystick.ang = Math.atan2(dy, dx);
+    let d = Math.min(Math.hypot(dx, dy), 50);
+    document.getElementById("stick").style.transform = `translate(${Math.cos(joystick.ang)*d}px, ${Math.sin(joystick.ang)*d}px)`;
+}
+
 window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
 window.onresize();
 loadHistory();
