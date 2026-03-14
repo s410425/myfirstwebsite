@@ -2,29 +2,32 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>Snake.io Arena - 終極完整版</title>
+    <title>Snake.io Arena - 終極全功能進化版</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; user-select: none; }
         canvas { display: block; }
         
-        /* 頂部排行榜 (即時戰況) */
-        #ui-layer { position: absolute; top: 20px; right: 20px; color: white; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 12px; border: 1px solid #0f4; min-width: 200px; display: none; pointer-events: none; font-size: 14px; z-index: 10; }
-        
-        /* 本地最高分紀錄 */
+        /* UI 排行榜 */
+        #ui-layer { position: absolute; top: 20px; right: 20px; color: white; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 12px; border: 1px solid #0f4; min-width: 200px; display: none; pointer-events: none; z-index: 10; }
         #permanent-rank { position: absolute; top: 20px; left: 20px; color: #eee; background: rgba(20,20,20,0.9); padding: 15px; border-radius: 12px; font-size: 13px; border: 1px solid #444; width: 220px; z-index: 10; }
-        
-        /* 分數與技能 UI */
         #score-ui { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: #0f4; font-size: 32px; font-weight: bold; text-shadow: 0 0 15px #0f4; display: none; pointer-events: none; }
+        
+        /* 技能 UI */
         #skill-ui { position: absolute; bottom: 20px; left: 20px; display: none; flex-direction: column; gap: 10px; z-index: 10; }
         .skill-slot { background: rgba(0,0,0,0.7); padding: 8px 15px; border-radius: 8px; border: 1px solid #555; width: 180px; position: relative; overflow: hidden; color: white; font-size: 12px; }
         .skill-bar { position: absolute; bottom: 0; left: 0; height: 4px; background: #f0f; width: 0%; transition: width 0.1s linear; }
 
+        /* 死亡提示 */
+        #death-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(100, 0, 0, 0.7); display: none; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 200; backdrop-filter: blur(10px); }
+        #death-msg { font-size: 80px; font-weight: bold; text-shadow: 0 0 30px black; color: #ff4444; animation: pulse 0.8s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
         /* 主選單 */
         #menu { position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.98); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        #player-name { background: transparent; border: 2px solid #333; border-radius: 8px; padding: 10px; color: #0f4; font-size: 20px; text-align: center; outline: none; margin: 20px; width: 220px; }
-        .mode-group { display: flex; gap: 10px; margin-bottom: 25px; }
-        .mode-card { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; border: 1px solid #333; cursor: pointer; width: 90px; text-align: center; transition: 0.3s; }
+        .mode-group { display: flex; gap: 10px; margin: 25px 0; }
+        .mode-card { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; border: 1px solid #333; cursor: pointer; width: 85px; text-align: center; transition: 0.2s; }
         .mode-card.active { border-color: #0f4; background: rgba(0,255,68,0.15); transform: scale(1.05); }
+        #player-name { background: transparent; border: 2px solid #444; border-radius: 8px; padding: 10px; color: #0f4; font-size: 20px; text-align: center; outline: none; margin: 10px; width: 220px; }
         #start-btn { font-size: 24px; padding: 15px 80px; cursor: pointer; background: #0f4; border: none; border-radius: 50px; font-weight: bold; }
     </style>
 </head>
@@ -37,9 +40,15 @@
         <div class="mode-card active" id="m-magic" onclick="selectMode('magic', 5000)">✨ 魔法</div>
         <div class="mode-card" id="m-evo" onclick="selectMode('evo', 3500)">⚡ 覺醒</div>
         <div class="mode-card" id="m-classic" onclick="selectMode('classic', 450)">🛡️ 經典</div>
-        <div class="mode-card" id="m-online" onclick="selectMode('online', 450)">🌍 連機</div>
+        <div class="mode-card" id="m-online" onclick="selectMode('online', 600)">🌍 連機</div>
     </div>
     <button id="start-btn" onclick="startGame()">START</button>
+</div>
+
+<div id="death-screen">
+    <div id="death-msg">你死亡了</div>
+    <div id="death-score" style="font-size:28px; margin: 15px 0;">SCORE: 0</div>
+    <div style="color: #ccc;">正在保存數據並返回選單...</div>
 </div>
 
 <div id="skill-ui">
@@ -60,13 +69,12 @@
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const MAP_SIZE = 5500;
+const MAP_SIZE = 6000;
 let started = false, animId, currentMode = 'magic', currentMagnet = 5000;
 let player, foods = [], ai_bots = [];
 let mouse = { x: 0, y: 0, down: false, right: false }, keys = {};
 let cooldowns = { blink: 0, syphon: 0, warp: 100 };
 
-// 模式與排行紀錄
 function selectMode(m, mag) {
     currentMode = m; currentMagnet = mag;
     document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
@@ -75,7 +83,7 @@ function selectMode(m, mag) {
 }
 
 function updateRankDisplay() {
-    let rec = JSON.parse(localStorage.getItem(`snk_v13_${currentMode}`) || '[]');
+    let rec = JSON.parse(localStorage.getItem(`snk_v16_${currentMode}`) || '[]');
     document.getElementById('p-list').innerHTML = rec.map((r,i)=>`<div>${i+1}. ${r.name} <span style="float:right">${r.score}</span></div>`).join('') || "尚無紀錄";
 }
 
@@ -88,34 +96,76 @@ class Snake {
         this.angle = Math.random() * Math.PI * 2;
         this.dead = false;
         this.birth = Date.now();
-        this.name = isPlayer ? (document.getElementById('player-name').value || "YOU") : 
-                    (currentMode === 'online' ? "PLAYER_"+Math.floor(Math.random()*999) : "AI_"+Math.floor(Math.random()*999));
+        this.isRealSim = false; // 是否為連機模式的模擬真人
+        this.name = isPlayer ? (document.getElementById('player-name').value || "YOU") : "AI_"+Math.floor(Math.random()*999);
     }
 
     get radius() { return 10 + Math.sqrt(this.length) * 0.5; }
 
+    grow(val) {
+        // 長度收益遞減公式
+        let factor = 1 + Math.pow(this.length / 8000, 1.5);
+        this.length += val / factor;
+    }
+
     update(isSlowed) {
         if (this.dead) return;
+
+        // AI 邏輯 (包含避障與靈活性)
+        if (!this.isPlayer) {
+            let head = this.body[0];
+            let avoid = false;
+
+            // 1. 邊界感應
+            if (Math.abs(head.x) > MAP_SIZE - 500 || Math.abs(head.y) > MAP_SIZE - 500) {
+                let toCenter = Math.atan2(-head.y, -head.x);
+                this.angle += (toCenter - this.angle) * 0.2;
+                avoid = true;
+            }
+
+            // 2. 靈活避障
+            if (!avoid && Math.random() > 0.7) {
+                let px = head.x + Math.cos(this.angle) * 350;
+                let py = head.y + Math.sin(this.angle) * 350;
+                [player, ...ai_bots].forEach(s => {
+                    if (s === this || s.dead) return;
+                    if (Math.hypot(px - s.body[0].x, py - s.body[0].y) < s.radius + 200) {
+                        this.angle += (Math.random() > 0.5 ? 0.8 : -0.8);
+                        avoid = true;
+                    }
+                });
+            }
+
+            // 3. 覓食行為 (真人模擬會更積極轉向食物)
+            if (!avoid && Math.random() > (this.isRealSim ? 0.85 : 0.95)) {
+                let target = foods[Math.floor(Math.random() * 40)];
+                if (target) {
+                    let targetAngle = Math.atan2(target.y - head.y, target.x - head.x);
+                    this.angle += (targetAngle - this.angle) * 0.2;
+                }
+            }
+        }
+
         let speedMult = (isSlowed && !this.isPlayer) ? 0.35 : 1.0;
-        let boost = (this.isPlayer && (mouse.down || keys['Shift']) && this.length > 400);
+        let boost = (this.isPlayer && (mouse.down || keys['Shift']) && this.length > 500);
         let speed = (boost ? 9 : 4.8) * speedMult;
         
-        if (boost) this.length -= 1.2;
+        if (boost) this.length -= 1.6;
         this.length = Math.max(280, this.length);
 
-        let head = { x: this.body[0].x + Math.cos(this.angle) * speed, y: this.body[0].y + Math.sin(this.angle) * speed };
-        this.body.unshift(head);
+        let newHead = { x: this.body[0].x + Math.cos(this.angle) * speed, y: this.body[0].y + Math.sin(this.angle) * speed };
+        this.body.unshift(newHead);
         
-        let distAccum = 0;
+        let d = 0;
         for (let i = 0; i < this.body.length - 1; i++) {
-            distAccum += Math.hypot(this.body[i+1].x - this.body[i].x, this.body[i+1].y - this.body[i].y);
-            if (distAccum > this.length) { this.body.splice(i + 1); break; }
+            d += Math.hypot(this.body[i+1].x - this.body[i].x, this.body[i+1].y - this.body[i].y);
+            if (d > this.length) { this.body.splice(i + 1); break; }
         }
     }
 
     draw(camX, camY, zoom) {
         ctx.strokeStyle = this.color; ctx.lineWidth = this.radius * 2 * zoom; ctx.lineCap = "round"; ctx.lineJoin = "round";
-        if(this.isPlayer) { ctx.shadowBlur = 15*zoom; ctx.shadowColor = this.color; }
+        if(this.isPlayer) { ctx.shadowBlur = 20*zoom; ctx.shadowColor = this.color; }
         ctx.beginPath();
         this.body.forEach((p, i) => {
             let sx = (p.x - camX) * zoom + canvas.width/2;
@@ -124,25 +174,44 @@ class Snake {
         });
         ctx.stroke(); ctx.shadowBlur = 0;
         
-        // 繪製名稱
         if (zoom > 0.3) {
-            ctx.fillStyle = "white"; ctx.font = `${12*zoom}px Arial`; ctx.textAlign = "center";
-            ctx.fillText(this.name, (this.body[0].x - camX)*zoom + canvas.width/2, (this.body[0].y - camY)*zoom + canvas.height/2 - this.radius*zoom - 5);
+            ctx.fillStyle = "white"; ctx.font = `bold ${14*zoom}px Arial`; ctx.textAlign = "center";
+            ctx.fillText(this.name, (this.body[0].x - camX)*zoom + canvas.width/2, (this.body[0].y - camY)*zoom + canvas.height/2 - this.radius*zoom - 10);
         }
     }
+}
+
+// 追蹤器繪製 (連機模式專用)
+function drawTracker(p, target, zoom) {
+    let dx = target.body[0].x - p.body[0].x;
+    let dy = target.body[0].y - p.body[0].y;
+    let dist = Math.hypot(dx, dy);
+    if (dist < canvas.width / zoom) return; // 在畫面內不顯示
+
+    let angle = Math.atan2(dy, dx);
+    let edgeX = Math.cos(angle) * (canvas.width/2 - 50) + canvas.width/2;
+    let edgeY = Math.sin(angle) * (canvas.height/2 - 50) + canvas.height/2;
+
+    ctx.save();
+    ctx.translate(edgeX, edgeY);
+    ctx.rotate(angle);
+    ctx.fillStyle = target.color;
+    ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-10, -8); ctx.lineTo(-10, 8); ctx.closePath(); ctx.fill();
+    ctx.rotate(-angle);
+    ctx.fillStyle = "white"; ctx.font = "12px Arial"; ctx.textAlign = "center";
+    ctx.fillText(target.name, 0, 20);
+    ctx.restore();
 }
 
 function spawnFood(x, y, big = false, color = null) {
     foods.push({
         x: x ?? (Math.random()-0.5)*MAP_SIZE*2, y: y ?? (Math.random()-0.5)*MAP_SIZE*2,
-        val: big ? 160 : 35, size: big ? 12 : 6, color: color ?? `hsl(${Math.random()*360}, 100%, 75%)`, magic: !!color
+        val: big ? 180 : 40, size: big ? 12 : 6, color: color ?? `hsl(${Math.random()*360}, 100%, 75%)`, magic: !!color
     });
 }
 
 function loop() {
     if (!started) return;
-
-    // 技能能量
     if (cooldowns.blink > 0) cooldowns.blink -= 16;
     if (cooldowns.syphon > 0) cooldowns.syphon -= 16;
     let isWarping = (currentMode === 'magic' && mouse.right && cooldowns.warp > 0);
@@ -152,28 +221,22 @@ function loop() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const head = player.body[0];
-    const zoom = Math.max(0.25, 1.1 - player.length / 18000);
+    const zoom = Math.max(0.2, 1.1 - player.length / 20000);
 
-    player.angle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
+    // 絲滑轉向
+    let targetAngle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
+    let diff = targetAngle - player.angle;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    player.angle += diff * 0.22;
     player.update(isWarping);
 
-    // 邊界判定
     if (Math.abs(head.x) > MAP_SIZE || Math.abs(head.y) > MAP_SIZE) player.dead = true;
 
-    // AI 行為與成長
     ai_bots.forEach(ai => {
-        // AI 覓食：找最近的食物
-        if (Math.random() > 0.96) {
-            let nearest = null, minDist = 800;
-            foods.slice(0, 40).forEach(f => {
-                let d = Math.hypot(ai.body[0].x - f.x, ai.body[0].y - f.y);
-                if (d < minDist) { minDist = d; nearest = f; }
-            });
-            if (nearest) ai.angle = Math.atan2(nearest.y - ai.body[0].y, nearest.x - ai.body[0].x);
-        }
         ai.update(isWarping);
-
-        // 碰撞檢測 (精確版)
+        if (currentMode === 'online') drawTracker(player, ai, zoom);
+        
         let snakes = [player, ...ai_bots];
         snakes.forEach(s => {
             if (ai === s || (Date.now() - ai.birth < 1500)) return;
@@ -188,39 +251,42 @@ function loop() {
         }
     });
 
-    // 食物邏輯 (玩家與 AI 共享)
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
         let dP = Math.hypot(head.x - f.x, head.y - f.y);
-        // 玩家吸力
-        if (dP < (f.magic ? 900 : currentMagnet)) {
-            f.x += (head.x - f.x) * 0.18; f.y += (head.y - f.y) * 0.18;
-            if (dP < player.radius) { player.length += f.val; foods.splice(i, 1); if(!f.magic) spawnFood(); continue; }
+        if (dP < (f.magic ? 1000 : currentMagnet)) {
+            f.x += (head.x - f.x) * 0.2; f.y += (head.y - f.y) * 0.2;
+            if (dP < player.radius) { player.grow(f.val); foods.splice(i, 1); if(!f.magic) spawnFood(); continue; }
         }
-        // AI 吃食物
         for (let ai of ai_bots) {
             if (Math.hypot(ai.body[0].x - f.x, ai.body[0].y - f.y) < ai.radius) {
-                ai.length += f.val; foods.splice(i, 1); if(!f.magic) spawnFood(); break;
+                ai.grow(f.val); foods.splice(i, 1); if(!f.magic) spawnFood(); break;
             }
         }
         ctx.fillStyle = f.color; ctx.beginPath();
         ctx.arc((f.x - head.x)*zoom + canvas.width/2, (f.y - head.y)*zoom + canvas.height/2, f.size*zoom, 0, 7); ctx.fill();
     }
 
-    if (player.dead) { exitToMenu(); return; }
+    if (player.dead) { handleDeath(); return; }
 
-    // AI 生成公式：玩家分數 * (0.1 ~ 2.5)，最低 250
     ai_bots = ai_bots.filter(a => {
         if (a.dead) {
-            for(let k=0; k<12; k++) spawnFood(a.body[0].x + (Math.random()-0.5)*300, a.body[0].y + (Math.random()-0.5)*300, true, a.color);
+            for(let k=0; k<15; k++) spawnFood(a.body[0].x + (Math.random()-0.5)*400, a.body[0].y + (Math.random()-0.5)*400, true, a.color);
             return false;
         }
         return true;
     });
-    while (ai_bots.length < 25) {
-        let randScale = 0.1 + Math.random() * 2.4;
-        let startLen = Math.max(250, player.length * randScale);
-        ai_bots.push(new Snake((Math.random()-0.5)*MAP_SIZE, (Math.random()-0.5)*MAP_SIZE, `hsl(${Math.random()*360}, 60%, 55%)`, false, startLen));
+
+    // AI/真人 生成邏輯 (公式結合)
+    let maxBots = currentMode === 'online' ? 12 : 25;
+    while (ai_bots.length < maxBots) {
+        let startLen = Math.max(280, player.length * (0.1 + Math.random() * 2.4));
+        let bot = new Snake((Math.random()-0.5)*MAP_SIZE, (Math.random()-0.5)*MAP_SIZE, `hsl(${Math.random()*360}, 70%, 60%)`, false, startLen);
+        if (currentMode === 'online') {
+            bot.isRealSim = true;
+            bot.name = ["Ninja", "Mamba", "King", "Ace", "Ghost", "Hunter"][Math.floor(Math.random()*6)] + "_" + Math.floor(Math.random()*99);
+        }
+        ai_bots.push(bot);
     }
 
     ai_bots.forEach(a => a.draw(head.x, head.y, zoom));
@@ -228,9 +294,10 @@ function loop() {
 
     // UI 更新
     document.getElementById("score-ui").innerText = "SCORE: " + Math.floor(player.length);
-    if (currentMode === 'magic' || currentMode === 'online') {
-        let rank = [player, ...ai_bots].sort((a,b)=>b.length - a.length).slice(0, 8);
-        document.getElementById("ui-layer").innerHTML = "<b>🏆 RANKING</b><hr>" + rank.map((s,i)=>`<div>${i+1}. ${s.name} <span style="float:right">${Math.floor(s.length)}</span></div>`).join("");
+    let rank = [player, ...ai_bots].sort((a,b)=>b.length - a.length).slice(0, 8);
+    document.getElementById("ui-layer").innerHTML = "<b>🏆 RANKING</b><hr>" + rank.map((s,i)=>`<div style="color:${s.isPlayer?'#0f4':'white'}">${i+1}. ${s.name} <span style="float:right">${Math.floor(s.length)}</span></div>`).join("");
+    
+    if (currentMode === 'magic') {
         document.getElementById("bar-blink").style.width = (1 - Math.max(0, cooldowns.blink)/5000)*100 + "%";
         document.getElementById("bar-syphon").style.width = (1 - Math.max(0, cooldowns.syphon)/15000)*100 + "%";
         document.getElementById("bar-warp").style.width = cooldowns.warp + "%";
@@ -239,12 +306,22 @@ function loop() {
     animId = requestAnimationFrame(loop);
 }
 
+function handleDeath() {
+    started = false; cancelAnimationFrame(animId);
+    document.getElementById("death-score").innerText = "SCORE: " + Math.floor(player.length);
+    document.getElementById("death-screen").style.display = "flex";
+    
+    let key = `snk_v16_${currentMode}`, rec = JSON.parse(localStorage.getItem(key) || '[]');
+    rec.push({name: player.name, score: Math.floor(player.length)});
+    localStorage.setItem(key, JSON.stringify(rec.sort((a,b)=>b.score-a.score).slice(0,5)));
+
+    setTimeout(() => {
+        document.getElementById("death-screen").style.display = "none";
+        exitToMenu();
+    }, 3000);
+}
+
 function exitToMenu() {
-    if (started && player.length > 500) {
-        let key = `snk_v13_${currentMode}`, rec = JSON.parse(localStorage.getItem(key) || '[]');
-        rec.push({name: player.name, score: Math.floor(player.length)});
-        localStorage.setItem(key, JSON.stringify(rec.sort((a,b)=>b.score-a.score).slice(0,5)));
-    }
     started = false; cancelAnimationFrame(animId);
     document.getElementById("menu").style.display = "flex";
     document.getElementById("score-ui").style.display = "none";
@@ -255,10 +332,10 @@ function exitToMenu() {
 
 function startGame() {
     started = true; player = new Snake(0, 0, "#0f4", true); ai_bots = []; foods = [];
-    for(let i=0; i<400; i++) spawnFood();
+    for(let i=0; i<450; i++) spawnFood();
     document.getElementById("menu").style.display = "none";
     document.getElementById("score-ui").style.display = "block";
-    document.getElementById("ui-layer").style.display = (currentMode === 'magic' || currentMode === 'online') ? "block" : "none";
+    document.getElementById("ui-layer").style.display = "block";
     document.getElementById("skill-ui").style.display = (currentMode === 'magic') ? "flex" : "none";
     loop();
 }
@@ -271,14 +348,14 @@ window.addEventListener("keydown", e => {
     if (e.key === "Escape") exitToMenu();
     if (started && currentMode === 'magic') {
         if (e.code === "Space" && cooldowns.blink <= 0) {
-            player.body.forEach(p => { p.x += Math.cos(player.angle)*450; p.y += Math.sin(player.angle)*450; });
+            player.body.forEach(p => { p.x += Math.cos(player.angle)*500; p.y += Math.sin(player.angle)*500; });
             cooldowns.blink = 5000;
         }
         if (e.key.toLowerCase() === "q" && cooldowns.syphon <= 0 && player.length > 1000) {
             let top = ai_bots.sort((a,b)=>b.length-a.length)[0];
             if(top) {
-                top.length *= 0.5; player.length *= 0.9;
-                for(let i=0; i<20; i++) spawnFood(top.body[0].x+(Math.random()-0.5)*400, top.body[0].y+(Math.random()-0.5)*400, true, top.color);
+                top.length *= 0.5; player.grow(600);
+                for(let i=0; i<25; i++) spawnFood(top.body[0].x+(Math.random()-0.5)*400, top.body[0].y+(Math.random()-0.5)*400, true, top.color);
                 cooldowns.syphon = 15000;
             }
         }
