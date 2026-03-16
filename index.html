@@ -2,206 +2,250 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Snake.io Pro - 效能優化版</title>
+    <title>Snake.io - Ultimate Smooth Edition</title>
     <style>
-        :root { --bg: #05050a; --accent: #00f2ff; --player: #00ff88; }
-        body { margin: 0; overflow: hidden; background: var(--bg); font-family: sans-serif; color: white; }
+        :root { --accent: #00f2ff; --player: #00ff88; --danger: #ff4466; --bg: #050508; }
+        body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', system-ui; color: white; }
         canvas { display: block; }
-        #ui { position: absolute; inset: 0; pointer-events: none; }
-        .board { position: absolute; background: rgba(20, 20, 35, 0.8); padding: 15px; border-radius: 12px; backdrop-filter: blur(5px); }
-        #temp-board { top: 10px; right: 10px; width: 150px; font-size: 12px; }
-        #overlay { position: absolute; inset: 0; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
-        button { padding: 15px 50px; font-size: 20px; background: var(--accent); border: none; border-radius: 30px; cursor: pointer; }
+        #ui { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+        .panel { position: absolute; background: rgba(10, 10, 20, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 15px; }
+        #leaderboard { top: 20px; right: 20px; width: 180px; }
+        #skill-bar { bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; }
+        .skill { display: flex; flex-direction: column; align-items: center; min-width: 80px; }
+        .key-box { padding: 4px 10px; background: #222; border-radius: 6px; font-weight: 900; color: var(--accent); border-bottom: 3px solid #000; margin-bottom: 8px; }
+        .cd-bar { width: 60px; height: 4px; background: #111; border-radius: 2px; overflow: hidden; }
+        .cd-fill { height: 100%; background: var(--accent); width: 100%; transition: width 0.1s linear; }
+        #overlay { position: absolute; inset: 0; background: radial-gradient(circle, #1a1a2e, #050508); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
+        .btn-start { padding: 16px 60px; font-size: 24px; background: var(--accent); color: #000; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-start:hover { transform: scale(1.05); box-shadow: 0 0 40px rgba(0,242,255,0.4); }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <div id="overlay">
-        <h1>SNAKE.IO OPTIMIZED</h1>
-        <button id="start-btn">開始遊戲</button>
+<div id="overlay">
+    <h1 style="font-size: 80px; margin: 0; letter-spacing: -2px; background: linear-gradient(135deg, #fff, var(--accent)); -webkit-background-clip: text; color: transparent;">SNAKE.IO</h1>
+    <p style="color: #555; letter-spacing: 10px; margin-bottom: 40px;">ULTIMATE OPTIMIZED</p>
+    <button class="btn-start" onclick="startGame()">ENTER ARENA</button>
+</div>
+
+<div id="ui" class="hidden">
+    <div id="leaderboard" class="panel">
+        <h3 style="margin: 0 0 10px; font-size: 14px; color: var(--accent);">RANKING</h3>
+        <div id="lb-list"></div>
     </div>
-
-    <div id="ui">
-        <div id="temp-board" class="board">
-            <div id="lb"></div>
-        </div>
+    <div id="skill-bar" class="panel">
+        <div class="skill"><div class="key-box">SHIFT</div><span style="font-size:10px">DASH</span></div>
+        <div class="skill"><div class="key-box">SPACE</div><div class="cd-bar"><div id="cd-blink" class="cd-fill"></div></div></div>
+        <div class="skill"><div class="key-box">Q</div><div class="cd-bar"><div id="cd-drain" class="cd-fill"></div></div></div>
+        <div class="skill" style="color:#ffeb3b"><div class="key-box" style="color:#ffeb3b">🧲</div><span style="font-size:10px">AUTO</span></div>
     </div>
+</div>
 
-    <canvas id="gameCanvas"></canvas>
+<canvas id="gameCanvas"></canvas>
 
-    <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d", { alpha: false }); // 關閉透明通道提升效能
-        const WORLD_SIZE = 3000;
-        let isRunning = false;
-        let snakes = [];
-        let foods = [];
-        let player;
-        let camera = { x: 0, y: 0 };
-        let mouse = { x: 0, y: 0 };
+<script>
+/** 遊戲核心配置 **/
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+const WORLD = 4000;
+let isRunning = false, player, snakes = [], foods = [];
+let camera = { x: 0, y: 0 }, mouse = { x: 0, y: 0 };
+let skillState = { dash: false, blink: 0, drain: 0 };
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
+
+/** 輸入監聽 **/
+window.addEventListener('mousemove', e => { mouse.x = e.clientX - canvas.width/2; mouse.y = e.clientY - canvas.height/2; });
+window.addEventListener('keydown', e => {
+    if(e.code === 'ShiftLeft') skillState.dash = true;
+    if(e.code === 'Space' && skillState.blink <= 0) { player.blink(); skillState.blink = 120; }
+    if(e.code === 'KeyQ' && skillState.drain <= 0) { player.drain(); skillState.drain = 600; }
+});
+window.addEventListener('keyup', e => { if(e.code === 'ShiftLeft') skillState.dash = false; });
+
+/** 物件類別 **/
+class Food {
+    constructor(x, y, r, color) {
+        this.x = x || Math.random() * WORLD; this.y = y || Math.random() * WORLD;
+        this.r = r || 4; this.color = color || `hsl(${Math.random()*360}, 70%, 60%)`;
+    }
+    draw() {
+        let sx = this.x - camera.x, sy = this.y - camera.y;
+        if(sx < -20 || sx > canvas.width+20 || sy < -20 || sy > canvas.height+20) return;
+        ctx.fillStyle = this.color;
+        ctx.beginPath(); ctx.arc(sx, sy, this.r, 0, 6.29); ctx.fill();
+    }
+}
+
+class Snake {
+    constructor(name, color, isPlayer) {
+        this.name = name; this.color = color; this.isPlayer = isPlayer;
+        this.x = Math.random() * WORLD; this.y = Math.random() * WORLD;
+        this.angle = Math.random() * 6.29; this.score = 0; this.r = 14;
+        this.segments = []; 
+        let initLen = isPlayer ? 40 : 250 + Math.random() * 100;
+        for(let i=0; i<initLen; i++) this.segments.push({x: this.x, y: this.y});
+    }
+
+    update() {
+        let speed = 4;
+        if(this.isPlayer) {
+            if(skillState.dash && this.score > 5) { speed = 8.5; this.score -= 0.15; }
+            let targetAngle = Math.atan2(mouse.y, mouse.x);
+            let diff = targetAngle - this.angle;
+            while(diff < -Math.PI) diff += Math.PI*2;
+            while(diff > Math.PI) diff -= Math.PI*2;
+            this.angle += diff * 0.12;
+            this.magnet();
+        } else {
+            this.angle += Math.sin(Date.now()*0.001 + this.x) * 0.04;
         }
-        window.addEventListener('resize', resize);
-        resize();
 
-        window.addEventListener('mousemove', e => {
-            mouse.x = e.clientX - canvas.width / 2;
-            mouse.y = e.clientY - canvas.height / 2;
+        this.x += Math.cos(this.angle) * speed;
+        this.y += Math.sin(this.angle) * speed;
+
+        // 邊界即死
+        if(this.x < 0 || this.x > WORLD || this.y < 0 || this.y > WORLD) return this.die();
+
+        this.segments.unshift({x: this.x, y: this.y});
+        let targetLen = 40 + Math.floor(this.score/4);
+        while(this.segments.length > targetLen) this.segments.pop();
+
+        // 吃食物判定
+        for(let i=foods.length-1; i>=0; i--) {
+            let f = foods[i];
+            if(Math.hypot(this.x-f.x, this.y-f.y) < this.r + f.r) {
+                this.score += f.r > 5 ? 20 : 5;
+                foods.splice(i, 1);
+                if(foods.length < 400) foods.push(new Food());
+            }
+        }
+    }
+
+    magnet() {
+        foods.forEach(f => {
+            let d = Math.hypot(this.x-f.x, this.y-f.y);
+            if(d < 160) { f.x += (this.x-f.x)*0.12; f.y += (this.y-f.y)*0.12; }
         });
+    }
 
-        class Food {
-            constructor(x, y, r, color) {
-                this.x = x || Math.random() * WORLD_SIZE;
-                this.y = y || Math.random() * WORLD_SIZE;
-                this.r = r || 4;
-                this.color = color || `hsl(${Math.random() * 360}, 70%, 50%)`;
+    blink() { this.x += Math.cos(this.angle)*450; this.y += Math.sin(this.angle)*450; }
+
+    drain() {
+        let leader = snakes[0];
+        if(leader && leader !== this) {
+            leader.segments.splice(-(Math.floor(leader.segments.length/2)));
+            this.score += 400;
+        }
+    }
+
+    die() {
+        if(this.isPlayer) { isRunning = false; alert("GG! Score: " + Math.floor(this.score)); location.reload(); }
+        else {
+            for(let i=0; i<this.segments.length; i+=12) foods.push(new Food(this.segments[i].x, this.segments[i].y, 7, this.color));
+            snakes[snakes.indexOf(this)] = new Snake("AI_BOT", "#ff4466", false);
+        }
+    }
+
+    draw() {
+        if(this.segments.length < 2) return;
+        let sx = this.segments[0].x - camera.x, sy = this.segments[0].y - camera.y;
+        if(sx < -200 || sx > canvas.width+200 || sy < -200 || sy > canvas.height+200) return;
+
+        // --- 平滑身體渲染 ---
+        ctx.beginPath();
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = this.r * 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.moveTo(sx, sy);
+        
+        // 貝茲曲線平滑化
+        for(let i=1; i < this.segments.length - 2; i+=2) {
+            let xc = (this.segments[i].x + this.segments[i+1].x) / 2 - camera.x;
+            let yc = (this.segments[i].y + this.segments[i+1].y) / 2 - camera.y;
+            ctx.quadraticCurveTo(this.segments[i].x - camera.x, this.segments[i].y - camera.y, xc, yc);
+        }
+        ctx.stroke();
+
+        // 眼睛
+        ctx.fillStyle = "#fff";
+        let ex = sx + Math.cos(this.angle)*8, ey = sy + Math.sin(this.angle)*8;
+        ctx.beginPath(); ctx.arc(ex, ey, 4, 0, 6.29); ctx.fill();
+    }
+}
+
+/** 遊戲循環 **/
+function loop() {
+    if(!isRunning) return;
+    
+    // 平滑相機跟隨
+    camera.x += (player.x - canvas.width/2 - camera.x) * 0.1;
+    camera.y += (player.y - canvas.height/2 - camera.y) * 0.1;
+
+    // 背景與格線
+    ctx.fillStyle = varColor('--bg');
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawGrid();
+
+    // 更新 CD
+    if(skillState.blink > 0) skillState.blink--;
+    if(skillState.drain > 0) skillState.drain--;
+    document.getElementById('cd-blink').style.width = (1-skillState.blink/120)*100 + '%';
+    document.getElementById('cd-drain').style.width = (1-skillState.drain/600)*100 + '%';
+
+    // 物件繪製
+    foods.forEach(f => f.draw());
+    
+    snakes.sort((a,b) => b.score - a.score);
+    let lbHtml = "";
+    snakes.forEach((s, idx) => {
+        s.update();
+        s.draw();
+        if(idx < 6) lbHtml += `<div style="margin:2px 0; color:${s.isPlayer?varColor('--player'):'#ccc'}">${idx+1}. ${s.name} <span style="float:right">${Math.floor(s.score)}</span></div>`;
+        
+        // 核心碰撞偵測 (跳步優化)
+        if(s !== player) {
+            // 我撞別人
+            for(let k=10; k<s.segments.length; k+=8) {
+                if(Math.hypot(player.x-s.segments[k].x, player.y-s.segments[k].y) < player.r + s.r) { player.die(); return; }
             }
-            draw() {
-                let sx = this.x - camera.x;
-                let sy = this.y - camera.y;
-                if (sx < -10 || sx > canvas.width + 10 || sy < -10 || sy > canvas.height + 10) return;
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(sx, sy, this.r, 0, 6.28);
-                ctx.fill();
+            // 別人撞我
+            for(let k=10; k<player.segments.length; k+=8) {
+                if(Math.hypot(s.x-player.segments[k].x, s.y-player.segments[k].y) < s.r + player.r) { s.die(); break; }
             }
         }
+    });
+    document.getElementById('lb-list').innerHTML = lbHtml;
 
-        class Snake {
-            constructor(name, color, isPlayer) {
-                this.name = name; this.color = color; this.isPlayer = isPlayer;
-                this.segments = []; this.score = 0; this.r = 12; this.angle = Math.random() * 6.28;
-                this.x = Math.random() * WORLD_SIZE; this.y = Math.random() * WORLD_SIZE;
-                // AI 數值邏輯
-                const pLen = player ? player.segments.length : 40;
-                const len = isPlayer ? 40 : Math.max(250, Math.floor(pLen * (Math.random() * 0.9 + 0.6)));
-                for(let i=0; i<len; i++) this.segments.push({x: this.x, y: this.y});
-            }
+    // 世界邊界
+    ctx.strokeStyle = varColor('--danger'); ctx.lineWidth = 10;
+    ctx.strokeRect(-camera.x, -camera.y, WORLD, WORLD);
 
-            update() {
-                let speed = this.isPlayer ? 4 : 3;
-                if (this.isPlayer) {
-                    let targetAngle = Math.atan2(mouse.y, mouse.x);
-                    let diff = targetAngle - this.angle;
-                    while(diff < -3.14) diff += 6.28;
-                    while(diff > 3.14) diff -= 6.28;
-                    this.angle += diff * 0.1;
-                    
-                    // 磁鐵
-                    for(let f of foods) {
-                        let d = Math.hypot(this.x - f.x, this.y - f.y);
-                        if(d < 120) {
-                            f.x += (this.x - f.x) * 0.15;
-                            f.y += (this.y - f.y) * 0.15;
-                        }
-                    }
-                } else {
-                    this.angle += Math.sin(Date.now() * 0.002) * 0.05;
-                }
+    requestAnimationFrame(loop);
+}
 
-                this.x += Math.cos(this.angle) * speed;
-                this.y += Math.sin(this.angle) * speed;
+function drawGrid() {
+    ctx.strokeStyle = "rgba(255,255,255,0.03)"; ctx.lineWidth = 1;
+    let size = 150;
+    for(let x=-camera.x%size; x<canvas.width; x+=size) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+    for(let y=-camera.y%size; y<canvas.height; y+=size) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+}
 
-                // 邊界判定
-                if(this.x < 0 || this.x > WORLD_SIZE || this.y < 0 || this.y > WORLD_SIZE) return this.die();
+function varColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
-                this.segments.unshift({x: this.x, y: this.y});
-                if(this.segments.length > (40 + this.score/2)) this.segments.pop();
-
-                // 吃食
-                for(let i=foods.length-1; i>=0; i--) {
-                    let f = foods[i];
-                    if(Math.hypot(this.x - f.x, this.y - f.y) < this.r + f.r) {
-                        this.score += 5;
-                        foods.splice(i, 1);
-                        if(foods.length < 300) foods.push(new Food());
-                    }
-                }
-            }
-
-            die() {
-                if(this.isPlayer) {
-                    isRunning = false;
-                    alert("Game Over! Score: " + Math.floor(this.score));
-                    location.reload();
-                } else {
-                    // 噴出能量 (優化：少噴一點但大顆一點)
-                    for(let i=0; i<this.segments.length; i+=15) {
-                        foods.push(new Food(this.segments[i].x, this.segments[i].y, 6, this.color));
-                    }
-                    let idx = snakes.indexOf(this);
-                    snakes[idx] = new Snake("AI", "#ff4466", false);
-                }
-            }
-
-            draw() {
-                ctx.fillStyle = this.color;
-                // 優化：每 6 節畫一次身體節點
-                for(let i=this.segments.length-1; i>=0; i-=6) {
-                    let sx = this.segments[i].x - camera.x;
-                    let sy = this.segments[i].y - camera.y;
-                    if(sx < -20 || sx > canvas.width+20 || sy < -20 || sy > canvas.height+20) continue;
-                    ctx.beginPath();
-                    ctx.arc(sx, sy, this.r, 0, 6.28);
-                    ctx.fill();
-                }
-                // 畫頭
-                let hx = this.x - camera.x, hy = this.y - camera.y;
-                ctx.fillStyle = "#fff";
-                ctx.beginPath(); ctx.arc(hx, hy, this.r, 0, 6.28); ctx.fill();
-            }
-        }
-
-        function loop() {
-            if(!isRunning) return;
-            camera.x = player.x - canvas.width/2;
-            camera.y = player.y - canvas.height/2;
-
-            // 背景清理
-            ctx.fillStyle = "#05050a";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 畫食物
-            for(let f of foods) f.draw();
-
-            // 更新與畫蛇
-            snakes.sort((a,b) => b.score - a.score);
-            let lbText = "";
-            for(let i=0; i<snakes.length; i++) {
-                let s = snakes[i];
-                s.update();
-                s.draw();
-                if(i < 5) lbText += `<div>#${i+1} ${s.name}: ${Math.floor(s.score)}</div>`;
-            }
-            document.getElementById("lb").innerHTML = lbText;
-
-            // 碰撞判定 (優化：跳節檢查)
-            for(let s1 of snakes) {
-                for(let s2 of snakes) {
-                    if(s1 === s2) continue;
-                    for(let k=10; k<s2.segments.length; k+=10) { // 每 10 節才檢查一次碰撞
-                        let seg = s2.segments[k];
-                        if(Math.hypot(s1.x - seg.x, s1.y - seg.y) < s1.r + s2.r) {
-                            s1.die(); return requestAnimationFrame(loop);
-                        }
-                    }
-                }
-            }
-            requestAnimationFrame(loop);
-        }
-
-        document.getElementById("start-btn").onclick = () => {
-            document.getElementById("overlay").style.display = "none";
-            player = new Snake("You", "#00ff88", true);
-            snakes = [player];
-            for(let i=0; i<10; i++) snakes.push(new Snake("AI", "#ff4466", false));
-            for(let i=0; i<250; i++) foods.push(new Food());
-            isRunning = true;
-            loop();
-        };
-    </script>
+function startGame() {
+    document.getElementById('overlay').classList.add('hidden');
+    document.getElementById('ui').classList.remove('hidden');
+    player = new Snake("YOU", varColor('--player'), true);
+    snakes = [player];
+    for(let i=0; i<15; i++) snakes.push(new Snake("AI_BOT", varColor('--danger'), false));
+    for(let i=0; i<400; i++) foods.push(new Food());
+    isRunning = true;
+    loop();
+}
+</script>
 </body>
 </html>
