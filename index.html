@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Snake.io 超能力競技場 - 殘酷邊界版</title>
+    <title>Snake.io 超能力磁鐵版</title>
     <style>
         :root {
             --bg: #05050a;
@@ -13,7 +13,7 @@
         body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', sans-serif; color: white; user-select: none; }
         canvas { display: block; }
 
-        #ui-layer { position: absolute; inset: 0; pointer-events: none; }
+        #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
         
         #overlay {
             position: absolute; inset: 0; background: radial-gradient(circle, #1a1a2e 0%, #05050a 100%);
@@ -35,7 +35,7 @@
         .skill-item { text-align: center; }
         .key { display: inline-block; padding: 2px 8px; background: #333; border-radius: 4px; font-weight: bold; color: var(--accent); }
         .cd-bar { width: 100px; height: 4px; background: #222; margin-top: 5px; position: relative; }
-        .cd-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--accent); width: 100%; transition: width 0.1s; }
+        .cd-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--accent); width: 100%; }
 
         .entry { display: flex; justify-content: space-between; font-size: 13px; margin: 3px 0; }
         .me { color: var(--player); font-weight: bold; }
@@ -46,13 +46,13 @@
 
     <div id="overlay">
         <h1 style="font-size: 70px; margin: 0; background: linear-gradient(to bottom, #00f2ff, #7000ff); -webkit-background-clip: text; color: transparent;">SNAKE.IO</h1>
-        <p style="color: #888; letter-spacing: 5px; margin-bottom: 30px;">殘酷邊界模式</p>
-        <button id="start-btn">進入競技場</button>
+        <p style="color: #888; letter-spacing: 5px; margin-bottom: 30px;">SUPER MAGNET & KILL MODE</p>
+        <button id="start-btn">開戰</button>
     </div>
 
     <div id="ui-layer" class="hidden">
         <div id="temp-board" class="board">
-            <h3 style="margin:0; font-size:14px; color:var(--accent);">👑 實時排行</h3>
+            <h3 style="margin:0; font-size:14px; color:var(--accent);">👑 即時排行</h3>
             <div id="temp-content" style="margin-top:10px;"></div>
         </div>
 
@@ -60,6 +60,7 @@
             <div class="skill-item"><span class="key">Shift</span> 加速</div>
             <div class="skill-item"><span class="key">Space</span> 瞬移<div class="cd-bar"><div id="blink-fill" class="cd-fill"></div></div></div>
             <div class="skill-item"><span class="key">Q</span> 吸取第一名<div class="cd-bar"><div id="drain-fill" class="cd-fill"></div></div></div>
+            <div class="skill-item" style="color: #ffeb3b;">🧲 磁鐵已啟動</div>
         </div>
     </div>
 
@@ -98,8 +99,8 @@
         window.addEventListener('keydown', e => {
             if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') skills.dash.active = true;
             if (e.code === 'Space' && skills.blink.cd <= 0 && isRunning) {
-                player.x += Math.cos(player.angle) * 400;
-                player.y += Math.sin(player.angle) * 400;
+                player.x += Math.cos(player.angle) * 450;
+                player.y += Math.sin(player.angle) * 450;
                 skills.blink.cd = skills.blink.maxCd;
             }
             if (e.code === 'KeyQ' && skills.drain.cd <= 0 && isRunning) {
@@ -108,7 +109,7 @@
                     let stealAmount = Math.floor(leader.segments.length * 0.5);
                     if (stealAmount > 20) {
                         leader.segments.splice(-stealAmount);
-                        player.score += stealAmount * 2;
+                        player.score += stealAmount * 3;
                         skills.drain.cd = skills.drain.maxCd;
                     }
                 }
@@ -120,12 +121,12 @@
         });
 
         class Food {
-            constructor() { this.spawn(); }
-            spawn() {
-                this.x = Math.random() * WORLD_SIZE;
-                this.y = Math.random() * WORLD_SIZE;
-                this.r = Math.random() * 4 + 3;
-                this.color = `hsl(${Math.random() * 360}, 80%, 60%)`;
+            constructor(x, y, r, color) {
+                this.x = x || Math.random() * WORLD_SIZE;
+                this.y = y || Math.random() * WORLD_SIZE;
+                this.r = r || Math.random() * 4 + 3;
+                this.color = color || `hsl(${Math.random() * 360}, 80%, 60%)`;
+                this.isDeadBody = !!r; // 如果有傳入半徑，代表是死掉噴出來的
             }
             draw() {
                 let sx = this.x - camera.x;
@@ -134,15 +135,15 @@
                 ctx.beginPath();
                 ctx.arc(sx, sy, this.r, 0, Math.PI*2);
                 ctx.fillStyle = this.color;
+                if (this.isDeadBody) { ctx.shadowBlur = 10; ctx.shadowColor = this.color; }
                 ctx.fill();
+                ctx.shadowBlur = 0;
             }
         }
 
         class Snake {
             constructor(name, color, isPlayer) {
-                this.name = name;
-                this.color = color;
-                this.isPlayer = isPlayer;
+                this.name = name; this.color = color; this.isPlayer = isPlayer;
                 this.init();
             }
             init() {
@@ -153,11 +154,10 @@
                 this.r = 15;
                 this.angle = Math.random() * Math.PI * 2;
                 this.speed = 4;
+                this.magnetRange = 150; // 磁鐵範圍
                 
-                // AI 長度邏輯：0.6~1.5 倍的玩家長度
                 const pLen = player ? player.segments.length : 50;
                 const len = this.isPlayer ? 50 : Math.floor(pLen * (Math.random() * 0.9 + 0.6));
-                
                 for(let i=0; i<len; i++) this.segments.push({x: this.x, y: this.y});
             }
             update() {
@@ -173,10 +173,14 @@
                     while(diff > Math.PI) diff -= Math.PI*2;
                     this.angle += diff * 0.12;
 
+                    // 更新冷卻 UI
                     if (skills.blink.cd > 0) skills.blink.cd--;
                     if (skills.drain.cd > 0) skills.drain.cd--;
                     document.getElementById("blink-fill").style.width = (1 - skills.blink.cd/skills.blink.maxCd)*100 + "%";
                     document.getElementById("drain-fill").style.width = (1 - skills.drain.cd/skills.drain.maxCd)*100 + "%";
+                    
+                    // 磁鐵邏輯 (僅玩家擁有)
+                    this.applyMagnet();
                 } else {
                     this.angle += Math.sin(Date.now() * 0.001 + this.x) * 0.05;
                 }
@@ -184,34 +188,49 @@
                 this.x += Math.cos(this.angle) * moveSpeed;
                 this.y += Math.sin(this.angle) * moveSpeed;
 
-                // 邊界判定：直接死
-                if (this.x < 0 || this.x > WORLD_SIZE || this.y < 0 || this.y > WORLD_SIZE) {
-                    this.die();
-                    return;
-                }
+                if (this.x < 0 || this.x > WORLD_SIZE || this.y < 0 || this.y > WORLD_SIZE) { this.die(); return; }
 
                 this.segments.unshift({x: this.x, y: this.y});
                 const targetLen = Math.floor(50 + this.score/3);
                 while(this.segments.length > targetLen) this.segments.pop();
 
-                foods.forEach(f => {
+                // 正常吃食物判定
+                foods.forEach((f, idx) => {
                     if(Math.hypot(this.x - f.x, this.y - f.y) < this.r + f.r) {
-                        f.spawn();
-                        this.score += 5;
+                        this.score += f.isDeadBody ? 15 : 5;
+                        foods.splice(idx, 1);
+                        if (!f.isDeadBody) foods.push(new Food());
                     }
                 });
             }
+
+            applyMagnet() {
+                foods.forEach(f => {
+                    let dist = Math.hypot(this.x - f.x, this.y - f.y);
+                    if (dist < this.magnetRange) {
+                        // 越靠近吸力越強
+                        let force = (this.magnetRange - dist) * 0.08;
+                        let angle = Math.atan2(this.y - f.y, this.x - f.x);
+                        f.x += Math.cos(angle) * force;
+                        f.y += Math.sin(angle) * force;
+                    }
+                });
+            }
+
             die() {
                 if (this.isPlayer) {
                     isRunning = false;
-                    alert("撞到邊界死亡！分數：" + Math.floor(this.score));
+                    alert("遊戲結束！分數：" + Math.floor(this.score));
                     location.reload();
                 } else {
-                    // AI 重生
-                    const idx = snakes.indexOf(this);
-                    snakes[idx] = new Snake("Enemy", "#ff4466", false);
+                    // AI 死亡噴出大量能量
+                    for(let i=0; i<this.segments.length; i+=8) {
+                        foods.push(new Food(this.segments[i].x, this.segments[i].y, 8, this.color));
+                    }
+                    snakes[snakes.indexOf(this)] = new Snake("Enemy", "#ff4466", false);
                 }
             }
+
             draw() {
                 for(let i = this.segments.length - 1; i >= 0; i--) {
                     if(i % 4 !== 0 && i !== 0) continue; 
@@ -224,9 +243,13 @@
                     ctx.fillStyle = i === 0 ? this.color : this.color + "99";
                     ctx.fill();
                     if(i === 0) {
-                        ctx.fillStyle = "white";
-                        ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
+                        ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
                         ctx.fillText(this.name, sx, sy - 22);
+                        // 畫玩家磁鐵範圍 (淡淡的圓圈)
+                        if(this.isPlayer) {
+                            ctx.beginPath(); ctx.arc(sx, sy, this.magnetRange, 0, Math.PI*2);
+                            ctx.strokeStyle = "rgba(0, 242, 255, 0.1)"; ctx.stroke();
+                        }
                     }
                 }
             }
@@ -249,6 +272,7 @@
             camera.y = player.y - canvas.height / 2;
             drawWorld();
             foods.forEach(f => f.draw());
+            
             snakes.sort((a,b) => b.score - a.score);
             let lb = "";
             snakes.forEach((s, idx) => {
@@ -258,13 +282,15 @@
             });
             document.getElementById("temp-content").innerHTML = lb;
 
-            for(let s of snakes) {
-                if(s === player) continue;
-                for(let i=15; i<s.segments.length; i+=5) {
-                    if(Math.hypot(player.x - s.segments[i].x, player.y - s.segments[i].y) < player.r + s.r) {
-                        isRunning = false;
-                        alert("撞到敵人死亡！分數：" + Math.floor(player.score));
-                        location.reload();
+            // 碰撞殺戮判定
+            for(let s1 of snakes) {
+                for(let s2 of snakes) {
+                    if (s1 === s2) continue;
+                    for(let i=10; i<s2.segments.length; i+=5) {
+                        if(Math.hypot(s1.x - s2.segments[i].x, s1.y - s2.segments[i].y) < s1.r + s2.r) {
+                            s1.die();
+                            return;
+                        }
                     }
                 }
             }
@@ -276,7 +302,7 @@
             uiLayer.classList.remove('hidden');
             player = new Snake("You", "#00ff88", true);
             snakes = [player];
-            for(let i=0; i<15; i++) snakes.push(new Snake("Enemy", "#ff4466", false));
+            for(let i=0; i<18; i++) snakes.push(new Snake("Enemy", "#ff4466", false));
             foods = Array.from({length: 400}, () => new Food());
             isRunning = true;
             loop();
