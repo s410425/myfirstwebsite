@@ -3,133 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Snake Arena - Full Logic Edition</title>
+    <title>Snake Arena - Full Power Fusion</title>
     <style>
-        :root { --neon: #0f4; --magic: #f0f; --alert: #ff4444; }
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; }
+        :root { --p-color: #0f4; --s-color: #00f2ff; --w-color: #f0f; --dead-color: #ff4444; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; color: white; user-select: none; touch-action: none; }
         canvas { display: block; }
 
-        /* UI 層級 */
-        #hud { position: absolute; inset: 0; pointer-events: none; color: white; }
-        #top-ui { position: absolute; top: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; }
-        #score-box { font-size: 40px; color: var(--neon); text-shadow: 0 0 20px var(--neon); }
+        /* UI 層級：質感強化 */
+        #ui-overlay { position: absolute; inset: 0; pointer-events: none; }
+        #stats { position: absolute; top: 20px; left: 20px; text-shadow: 0 0 15px var(--p-color); }
+        #score-val { font-size: 50px; font-weight: 900; color: var(--p-color); }
         
-        #leaderboard { background: rgba(0,0,0,0.8); border: 1px solid var(--neon); padding: 15px; border-radius: 10px; min-width: 200px; }
-        .entry { display: flex; justify-content: space-between; font-family: monospace; font-size: 14px; margin-bottom: 2px; }
-        .entry.me { color: var(--neon); font-weight: bold; background: rgba(0,255,68,0.1); }
+        /* 魔法技能 UI (帶有發光效果) */
+        #magic-slots { position: absolute; bottom: 30px; left: 30px; display: flex; flex-direction: column; gap: 12px; pointer-events: auto; }
+        .slot { 
+            width: 240px; background: rgba(10,10,10,0.9); border: 2px solid #333; 
+            padding: 15px; border-radius: 15px; position: relative; overflow: hidden;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .slot b { font-size: 14px; display: block; margin-bottom: 5px; letter-spacing: 1px; }
+        .progress { position: absolute; bottom: 0; left: 0; height: 5px; background: var(--s-color); width: 0%; transition: width 0.1s linear; }
+        .warp-bar { background: var(--w-color) !important; box-shadow: 0 0 10px var(--w-color); }
 
-        /* 技能欄位 */
-        #skills { position: absolute; bottom: 30px; left: 30px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
-        .skill { width: 220px; background: rgba(20,20,20,0.9); border: 2px solid #444; padding: 12px; border-radius: 12px; position: relative; overflow: hidden; }
-        .skill b { font-size: 14px; display: block; margin-bottom: 4px; letter-spacing: 1px; }
-        .cd-bar { position: absolute; bottom: 0; left: 0; height: 5px; background: #00f2ff; width: 0%; }
-        .warp-bar { background: var(--magic); box-shadow: 0 0 10px var(--magic); }
+        /* 排行榜 */
+        #leaderboard { 
+            position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.85); 
+            border: 1px solid var(--p-color); padding: 15px; border-radius: 12px; 
+            min-width: 200px; font-family: 'Courier New', monospace;
+        }
+        .rank-row { display: flex; justify-content: space-between; margin: 4px 0; font-size: 14px; }
+        .me { color: var(--p-color); font-weight: bold; background: rgba(0,255,68,0.1); }
 
-        /* 手機控制 */
-        #joy-base { position: absolute; bottom: 50px; left: 50px; width: 150px; height: 150px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; display: none; pointer-events: auto; }
-        #joy-stick { position: absolute; width: 60px; height: 60px; background: var(--neon); border-radius: 50%; top: 45px; left: 45px; opacity: 0.5; }
-        #m-actions { position: absolute; bottom: 50px; right: 50px; display: none; gap: 20px; pointer-events: auto; }
-        .m-btn { width: 80px; height: 80px; border: 3px solid #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.6); }
+        /* 手機控制面板 */
+        #joy-bg { position: absolute; bottom: 50px; left: 50px; width: 160px; height: 160px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); border-radius: 50%; display: none; pointer-events: auto; }
+        #joy-thumb { position: absolute; width: 60px; height: 60px; background: var(--p-color); border-radius: 50%; top: 50px; left: 50px; opacity: 0.5; box-shadow: 0 0 20px var(--p-color); }
+        #m-btns { position: absolute; bottom: 50px; right: 50px; display: none; gap: 20px; pointer-events: auto; }
+        .circle-btn { width: 85px; height: 85px; border: 3px solid white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.6); font-size: 16px; }
 
-        #start-mask { position: absolute; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; pointer-events: auto; }
-        #start-btn { padding: 25px 80px; font-size: 32px; background: var(--neon); border: none; border-radius: 60px; font-weight: bold; cursor: pointer; box-shadow: 0 0 40px rgba(0,255,68,0.5); }
+        #start-screen { position: absolute; inset: 0; background: radial-gradient(circle, #1a1a1a, #000); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; pointer-events: auto; }
+        #btn-go { padding: 25px 100px; font-size: 35px; background: var(--p-color); border: none; border-radius: 60px; cursor: pointer; font-weight: 900; box-shadow: 0 0 40px var(--p-color); transition: 0.3s; }
+        #btn-go:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>
 
-<div id="start-mask">
-    <h1 style="color:white; font-size: 70px; margin: 0; letter-spacing: 10px;">SNAKE <span style="color:var(--neon)">ARENA</span></h1>
-    <p style="color: #666; margin-bottom: 40px;">MAGIC FUSION & CLASSIC PHYSICS</p>
-    <button id="start-btn" onclick="startApp()">START MISSION</button>
+<div id="start-screen">
+    <h1 style="font-size: 80px; margin: 0; letter-spacing: 15px; text-shadow: 0 0 30px var(--p-color);">SNAKE <span style="color:var(--p-color)">IO</span></h1>
+    <p style="color: #888; margin-bottom: 50px; letter-spacing: 2px;">MODES: CLASSIC + MAGIC + MULTIPLAYER READY</p>
+    <button id="btn-go" onclick="startGame()">START GAME</button>
 </div>
 
-<div id="hud">
-    <div id="top-ui">
-        <div id="score-box">0</div>
-        <div id="leaderboard"></div>
+<div id="ui-overlay">
+    <div id="stats"><div id="score-val">0</div></div>
+    <div id="leaderboard"></div>
+    <div id="magic-slots">
+        <div class="slot"><b>⚡ BLINK [SPACE]</b><div id="cd-1" class="progress"></div></div>
+        <div class="slot"><b>💎 SYPHON [Q]</b><div id="cd-2" class="progress"></div></div>
+        <div class="slot"><b>🌀 TIME WARP [R-CLICK]</b><div id="cd-3" class="progress warp-bar"></div></div>
     </div>
-    <div id="skills">
-        <div class="skill"><b>⚡ BLINK [SPACE]</b><div id="cd-blink" class="cd-bar"></div></div>
-        <div class="skill"><b>💎 SYPHON [Q]</b><div id="cd-syphon" class="cd-bar"></div></div>
-        <div class="skill"><b>🌀 WARP [RIGHT-CLICK]</b><div id="cd-warp" class="cd-bar warp-bar"></div></div>
-    </div>
-    <div id="joy-base"><div id="joy-stick"></div></div>
-    <div id="m-actions">
-        <div class="m-btn" id="mb-boost">加速</div>
-        <div class="m-btn" id="mb-blink">閃現</div>
+    <div id="joy-bg"><div id="joy-thumb"></div></div>
+    <div id="m-btns">
+        <div class="circle-btn" id="m-boost">加速</div>
+        <div class="circle-btn" id="m-blink">閃現</div>
     </div>
 </div>
 
-<canvas id="stage"></canvas>
+<canvas id="canvas"></canvas>
 
 <script>
-/** 1. 核心配置 **/
-const canvas = document.getElementById("stage"), ctx = canvas.getContext("2d");
-const MAP = 6000, GRID_STEP = 100;
-let isRunning = false, player, snakes = [], foods = [], particles = [];
+/** 1. 核心設定與變數 **/
+const canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d");
+const WORLD_SIZE = 6000, GRID = 100;
+let isStarted = false, player, bots = [], foods = [], kills = [];
 let cd = { blink: 0, syphon: 0, warp: 100 };
-let mouse = { x: 0, y: 0, left: false, right: false }, keys = {};
+let input = { x:0, y:0, mouse:false, right:false, keys:{} };
 let joy = { active: false, ang: 0, boost: false };
-const mobile = 'ontouchstart' in window;
+const isTouch = 'ontouchstart' in window;
 
-/** 2. 蛇類別實體 (包含所有省略細節) **/
+/** 2. 蛇類別實體 (完美補齊所有模式細節) **/
 class Snake {
-    constructor(x, y, color, name, isMe = false, startLen = 400) {
+    constructor(x, y, color, name, isPlayer=false, len=400) {
         this.body = [{x, y}];
-        this.len = startLen;
+        this.len = len;
         this.color = color;
+        this.isPlayer = isPlayer;
         this.name = name;
-        this.isMe = isMe;
         this.ang = Math.random() * Math.PI * 2;
         this.r = 15;
         this.dead = false;
-        this.speed = 5;
+        this.boost = false;
     }
 
-    update(slowFactor) {
+    update(warpActive) {
         if(this.dead) return;
 
-        // --- 操控模式融合 ---
-        if(this.isMe) {
+        // --- 模式融合：操控邏輯 ---
+        if(this.isPlayer) {
             if(joy.active) this.ang = joy.ang;
-            else if(!mobile) this.ang = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
-            this.boost = (mouse.left || keys['shift'] || joy.boost) && this.len > 500;
+            else if(!isTouch) this.ang = Math.atan2(input.y - canvas.height/2, input.x - canvas.width/2);
+            this.boost = (input.mouse || input.keys['shift'] || joy.boost) && this.len > 500;
         } else {
-            // AI 邏輯：自動避開地圖邊緣 + 隨機巡航
-            let h = this.body[0];
-            if(Math.abs(h.x) > MAP/2 - 500 || Math.abs(h.y) > MAP/2 - 500) this.ang += 0.15;
-            if(Math.random() > 0.98) this.ang += (Math.random()-0.5) * 2;
+            // AI 模式：自動避障與獵食
+            if(Math.random() > 0.97) this.ang += (Math.random()-0.5) * 1.5;
+            let head = this.body[0];
+            if(Math.abs(head.x) > WORLD_SIZE/2 - 400 || Math.abs(head.y) > WORLD_SIZE/2 - 400) this.ang += 0.2;
         }
 
-        // --- 速度計算 (魔法減速影響) ---
-        let v = (this.boost ? 10 : 5);
-        if(slowFactor && !this.isMe) v *= 0.35; // 魔法效果：全場慢動作
+        // --- 魔法模式：速度計算 ---
+        let currentV = (this.boost ? 10 : 5);
+        if(warpActive && !this.isPlayer) currentV *= 0.35; // 時空緩速效果
         if(this.boost) this.len -= 1.8;
 
         let head = this.body[0];
-        let nX = head.x + Math.cos(this.ang) * v;
-        let nY = head.y + Math.sin(this.ang) * v;
+        let nextX = head.x + Math.cos(this.ang) * currentV;
+        let nextY = head.y + Math.sin(this.ang) * currentV;
         
-        this.body.unshift({x: nX, y: nY});
-        this.r = 12 + Math.sqrt(this.len) * 0.42;
+        this.body.unshift({x: nextX, y: nextY});
+        this.r = 12 + Math.sqrt(this.len) * 0.45;
 
-        // --- 長度物理裁切 ---
+        // --- 經典模式：長度物理裁切 ---
         let totalD = 0;
         for(let i=0; i<this.body.length-1; i++) {
-            let segD = Math.hypot(this.body[i+1].x - this.body[i].x, this.body[i+1].y - this.body[i].y);
-            totalD += segD;
+            totalD += Math.hypot(this.body[i+1].x - this.body[i].x, this.body[i+1].y - this.body[i].y);
             if(totalD > this.len) { this.body.splice(i+1); break; }
         }
     }
 
     draw(camX, camY, zoom) {
-        if(this.dead) return;
         ctx.lineCap = "round"; ctx.lineJoin = "round";
-        ctx.shadowBlur = this.isMe ? 20 * zoom : 0;
-        ctx.shadowColor = this.color;
         ctx.strokeStyle = this.color;
         ctx.lineWidth = this.r * 2 * zoom;
-        
+
+        // 魔法特效：玩家發光
+        if(this.isPlayer) {
+            ctx.shadowBlur = 15 * zoom;
+            ctx.shadowColor = this.color;
+        }
+
         ctx.beginPath();
         this.body.forEach((p, i) => {
             let sx = (p.x - camX) * zoom + canvas.width/2;
@@ -141,26 +151,26 @@ class Snake {
     }
 }
 
-/** 3. 核心邏輯補完：死亡判定與能量噴發 **/
-function checkPhysics() {
-    let all = [player, ...snakes];
+/** 3. 補齊：死亡判定與擊殺噴發模式 **/
+function checkCollisions() {
+    let all = [player, ...bots];
     all.forEach(s => {
         if(s.dead) return;
         let head = s.body[0];
 
-        // 邊界死亡
-        if(Math.abs(head.x) > MAP/2 || Math.abs(head.y) > MAP/2) kill(s);
+        // 撞牆死亡
+        if(Math.abs(head.x) > WORLD_SIZE/2 || Math.abs(head.y) > WORLD_SIZE/2) handleKill(s);
 
-        // 碰撞死亡 (經典：頭撞別人身體)
-        all.forEach(other => {
-            if(s === other || other.dead) return;
-            // 優化檢索：距離太遠不計算
-            if(Math.hypot(head.x - other.body[0].x, head.y - other.body[0].y) > other.len + 500) return;
+        // 頭撞身體判定
+        all.forEach(target => {
+            if(s === target || target.dead) return;
+            // 距離優化
+            if(Math.hypot(head.x - target.body[0].x, head.y - target.body[0].y) > target.len + 500) return;
 
-            for(let i=0; i<other.body.length; i+=8) {
-                let d = Math.hypot(head.x - other.body[i].x, head.y - other.body[i].y);
-                if(d < (s.r * 0.8 + other.r * 0.8)) {
-                    kill(s, other);
+            for(let i=0; i < target.body.length; i+=10) {
+                let d = Math.hypot(head.x - target.body[i].x, head.y - target.body[i].y);
+                if(d < (s.r * 0.8 + target.r * 0.8)) {
+                    handleKill(s, target);
                     return;
                 }
             }
@@ -168,137 +178,140 @@ function checkPhysics() {
     });
 }
 
-function kill(victim, killer) {
+function handleKill(victim, killer) {
     victim.dead = true;
-    // 能量噴發：死亡處產生大量食物
-    for(let i=0; i < Math.floor(victim.len/80); i++) {
-        let p = victim.body[Math.floor(Math.random()*victim.body.length)];
+    // 噴發模式：身體轉化為食物
+    for(let i=0; i < victim.body.length; i += 10) {
         foods.push({
-            x: p.x + (Math.random()-0.5)*100,
-            y: p.y + (Math.random()-0.5)*100,
+            x: victim.body[i].x + (Math.random()-0.5)*50,
+            y: victim.body[i].y + (Math.random()-0.5)*50,
             c: victim.color,
-            v: 180
+            v: 150 // 高價值食物
         });
     }
-    if(victim.isMe) {
+
+    if(victim.isPlayer) {
         setTimeout(() => location.reload(), 2000);
     } else {
-        snakes = snakes.filter(n => n !== victim);
+        bots = bots.filter(b => b !== victim);
         spawnBot();
     }
 }
 
 function spawnBot() {
-    // 融合指令：新蛇長度為玩家的 0.6 倍
-    let L = isRunning ? player.len * 0.6 : 400;
-    snakes.push(new Snake((Math.random()-0.5)*4000, (Math.random()-0.5)*4000, `hsl(${Math.random()*360},80%,60%)`, "BOT", false, L));
+    // 核心指令：出生數值 = 玩家長度 * 0.6
+    let startLen = isStarted ? player.len * 0.6 : 400;
+    let b = new Snake((Math.random()-0.5)*4000, (Math.random()-0.5)*4000, `hsl(${Math.random()*360},70%,60%)`, "BOT", false, startLen);
+    bots.push(b);
 }
 
-/** 4. 遊戲主循環 **/
-function startApp() {
-    isRunning = true;
-    document.getElementById("start-mask").style.display = "none";
-    if(mobile) {
-        document.getElementById("joy-base").style.display = "block";
-        document.getElementById("m-actions").style.display = "flex";
+/** 4. 遊戲主循環與魔法處理 **/
+function startGame() {
+    isStarted = true;
+    document.getElementById("start-screen").style.display = "none";
+    if(isTouch) {
+        document.getElementById("joy-bg").style.display = "block";
+        document.getElementById("m-btns").style.display = "flex";
     }
     player = new Snake(0, 0, "#0f4", "YOU", true, 500);
     for(let i=0; i<15; i++) spawnBot();
-    for(let i=0; i<300; i++) foods.push({x:(Math.random()-0.5)*MAP, y:(Math.random()-0.5)*MAP, c:"#fff", v:40});
-    tick();
+    for(let i=0; i<400; i++) foods.push({x:(Math.random()-0.5)*WORLD_SIZE, y:(Math.random()-0.5)*WORLD_SIZE, c:"#fff", v:40});
+    loop();
 }
 
-function tick() {
-    // 魔法冷卻更新
-    let warping = (mouse.right || keys['r']) && cd.warp > 0;
-    if(warping) cd.warp -= 0.85; else if(cd.warp < 100) cd.warp += 0.25;
+function loop() {
+    // 魔法冷卻處理
+    let isWarp = (input.right || input.keys['r']) && cd.warp > 0;
+    if(isWarp) cd.warp -= 0.8; else if(cd.warp < 100) cd.warp += 0.25;
     if(cd.blink > 0) cd.blink -= 16;
     if(cd.syphon > 0) cd.syphon -= 16;
 
-    // 繪製背景 (魔法發動時變色)
-    ctx.fillStyle = warping ? "#150020" : "#050505";
+    // 背景渲染 (魔法效果)
+    ctx.fillStyle = isWarp ? "#1a0025" : "#050505";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    const head = player.body[0], zoom = Math.max(0.2, 1.1 - player.len/25000);
+    const head = player.body[0], zoom = Math.max(0.25, 1.1 - player.len/22000);
 
-    // 格線
-    ctx.strokeStyle = "#111"; ctx.lineWidth = 1;
-    for(let i=-MAP/2; i<=MAP/2; i+=GRID_STEP) {
-        ctx.beginPath(); ctx.moveTo((i-head.x)*zoom+canvas.width/2, (-MAP/2-head.y)*zoom+canvas.height/2);
-        ctx.lineTo((i-camX=head.x)*zoom+canvas.width/2, (MAP/2-head.y)*zoom+canvas.height/2); ctx.stroke();
+    // 經典格線背景
+    ctx.strokeStyle = "#111"; ctx.lineWidth = 2;
+    for(let x=-WORLD_SIZE/2; x<=WORLD_SIZE/2; x+=GRID) {
+        ctx.beginPath(); ctx.moveTo((x-head.x)*zoom+canvas.width/2, (-WORLD_SIZE/2-head.y)*zoom+canvas.height/2);
+        ctx.lineTo((x-head.x)*zoom+canvas.width/2, (WORLD_SIZE/2-head.y)*zoom+canvas.height/2); ctx.stroke();
     }
 
-    // 更新與判定
+    // 實體邏輯
     player.update(false);
-    snakes.forEach(s => s.update(warping));
-    checkPhysics();
+    bots.forEach(b => b.update(isWarp));
+    checkCollisions();
 
-    // 魔法：磁力吸取 (自動向玩家靠近)
+    // 魔法：磁力吸取 (自動掠奪)
     foods.forEach((f, i) => {
         let d = Math.hypot(head.x - f.x, head.y - f.y);
-        if(d < 600) {
-            f.x += (head.x - f.x) * 0.2; f.y += (head.y - f.y) * 0.2;
-            if(d < player.r) { player.len += f.v/5; foods.splice(i, 1); }
+        if(d < 550) {
+            f.x += (head.x - f.x) * 0.18; f.y += (head.y - f.y) * 0.18;
+            if(d < player.r) { player.len += f.v/6; foods.splice(i,1); }
         }
-        ctx.fillStyle = f.c;
-        ctx.beginPath(); ctx.arc((f.x-head.x)*zoom+canvas.width/2, (f.y-head.y)*zoom+canvas.height/2, 5*zoom, 0, 7); ctx.fill();
+        ctx.fillStyle = f.c; ctx.beginPath(); ctx.arc((f.x-head.x)*zoom+canvas.width/2, (f.y-head.y)*zoom+canvas.height/2, 6*zoom, 0, 7); ctx.fill();
     });
-    if(foods.length < 300) foods.push({x:(Math.random()-0.5)*MAP, y:(Math.random()-0.5)*MAP, c:"#fff", v:40});
+    if(foods.length < 300) foods.push({x:(Math.random()-0.5)*WORLD_SIZE, y:(Math.random()-0.5)*WORLD_SIZE, c:"#fff", v:40});
 
     // 繪製蛇
-    snakes.forEach(s => s.draw(head.x, head.y, zoom));
+    bots.forEach(b => b.draw(head.x, head.y, zoom));
     player.draw(head.x, head.y, zoom);
 
-    // UI 更新
-    document.getElementById("score-box").innerText = Math.floor(player.len);
-    let top = [player, ...snakes].sort((a,b)=>b.len - a.len).slice(0,8);
-    document.getElementById("leaderboard").innerHTML = top.map((s,i)=>`<div class="entry ${s.isMe?'me':''}"><span>#${i+1} ${s.name}</span><span>${Math.floor(s.len)}</span></div>`).join("");
+    // UI 更新與排行榜
+    document.getElementById("score-val").innerText = Math.floor(player.len);
+    let top = [player, ...bots].sort((a,b)=>b.len - a.len).slice(0,8);
+    document.getElementById("leaderboard").innerHTML = top.map((s,i)=>`<div class="rank-row ${s.isPlayer?'me':''}"><span>#${i+1} ${s.name}</span><span>${Math.floor(s.len)}</span></div>`).join("");
     
-    document.getElementById("cd-blink").style.width = (Math.max(0, cd.blink)/5000)*100 + "%";
-    document.getElementById("cd-syphon").style.width = (Math.max(0, cd.syphon)/15000)*100 + "%";
-    document.getElementById("cd-warp").style.width = cd.warp + "%";
+    document.getElementById("cd-1").style.width = (Math.max(0, cd.blink)/5000)*100 + "%";
+    document.getElementById("cd-2").style.width = (Math.max(0, cd.syphon)/15000)*100 + "%";
+    document.getElementById("cd-3").style.width = cd.warp + "%";
 
-    requestAnimationFrame(tick);
+    requestAnimationFrame(loop);
 }
 
-/** 5. 魔法觸發函式 **/
-function useBlink() {
-    if(cd.blink <= 0) {
-        player.body.forEach(p => {
-            p.x += Math.cos(player.ang) * 1200;
-            p.y += Math.sin(player.ang) * 1200;
-        });
-        cd.blink = 5000;
-    }
+/** 5. 魔法觸發函式 (完整邏輯) **/
+function doBlink() { 
+    if(cd.blink <= 0) { 
+        player.body.forEach(p => { p.x += Math.cos(player.ang)*1000; p.y += Math.sin(player.ang)*1000; }); 
+        cd.blink = 5000; 
+    } 
 }
-function useSyphon() {
-    if(cd.syphon <= 0) {
-        player.len += 2500; // 強制掠奪成長
-        cd.syphon = 15000;
-    }
+function doSyphon() { 
+    if(cd.syphon <= 0) { 
+        player.len += 2000; // 強力奪取長度
+        cd.syphon = 15000; 
+    } 
 }
 
 /** 6. 事件綁定 **/
-window.onkeydown = e => { keys[e.key.toLowerCase()] = true; if(e.code==='Space') useBlink(); if(e.key==='q') useSyphon(); };
-window.onkeyup = e => keys[e.key.toLowerCase()] = false;
-window.onmousemove = e => { mouse.x = e.clientX; mouse.y = e.clientY; };
-window.onmousedown = e => { if(e.button===0) mouse.left=true; if(e.button===2) mouse.right=true; };
-window.onmouseup = () => { mouse.left=false; mouse.right=false; };
+window.addEventListener('keydown', e => { 
+    input.keys[e.key.toLowerCase()] = true; 
+    if(e.code === 'Space') doBlink(); 
+    if(e.key === 'q') doSyphon(); 
+});
+window.addEventListener('keyup', e => { input.keys[e.key.toLowerCase()] = false; });
+window.addEventListener('mousemove', e => { input.x = e.clientX; input.y = e.clientY; });
+window.addEventListener('mousedown', e => { if(e.button === 0) input.mouse = true; if(e.button === 2) input.right = true; });
+window.addEventListener('mouseup', e => { input.mouse = false; input.right = false; });
 window.oncontextmenu = e => e.preventDefault();
 
-if(mobile) {
-    const b = document.getElementById("joy-base"), s = document.getElementById("joy-stick");
-    b.ontouchstart = e => { joy.active=true; mJoy(e.touches[0]); };
-    b.ontouchmove = e => { mJoy(e.touches[0]); e.preventDefault(); };
-    b.ontouchend = () => { joy.active=false; s.style.transform = `translate(0,0)`; };
-    document.getElementById("mb-boost").ontouchstart = () => joy.boost=true;
-    document.getElementById("mb-boost").ontouchend = () => joy.boost=false;
-    document.getElementById("mb-blink").onclick = useBlink;
-    function mJoy(t) {
-        let r = b.getBoundingClientRect(), dx = t.clientX-(r.left+75), dy = t.clientY-(r.top+75);
+if(isTouch) {
+    const joyBg = document.getElementById("joy-bg"), thumb = document.getElementById("joy-thumb");
+    joyBg.addEventListener('touchstart', e => { joy.active = true; updateJoy(e.touches[0]); });
+    joyBg.addEventListener('touchmove', e => { updateJoy(e.touches[0]); e.preventDefault(); }, {passive:false});
+    joyBg.addEventListener('touchend', () => { joy.active = false; thumb.style.transform = `translate(0,0)`; });
+    document.getElementById("m-boost").ontouchstart = () => joy.boost = true;
+    document.getElementById("m-boost").ontouchend = () => joy.boost = false;
+    document.getElementById("m-blink").onclick = doBlink;
+
+    function updateJoy(t) {
+        let r = joyBg.getBoundingClientRect(), cx = r.left + 80, cy = r.top + 80;
+        let dx = t.clientX - cx, dy = t.clientY - cy;
         joy.ang = Math.atan2(dy, dx);
-        let d = Math.min(50, Math.hypot(dx, dy));
-        s.style.transform = `translate(${Math.cos(joy.ang)*d}px, ${Math.sin(joy.ang)*d}px)`;
+        let d = Math.min(60, Math.hypot(dx, dy));
+        thumb.style.transform = `translate(${Math.cos(joy.ang)*d}px, ${Math.sin(joy.ang)*d}px)`;
     }
 }
 
