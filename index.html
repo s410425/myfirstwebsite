@@ -2,173 +2,67 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake.io Pro - AI 競技場</title>
+    <title>Snake.io Pro - 極速競技場</title>
     <style>
         :root {
-            --primary-bg: #1a1a2e;
-            --secondary-bg: #16213e;
-            --accent: #e94560;
-            --accent-alt: #0f3460;
-            --text: #fff;
-            --font-main: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --bg: #0a0a12;
+            --panel: rgba(20, 20, 35, 0.85);
+            --accent: #00f2ff;
+            --player: #00ff88;
+            --ai: #ff4466;
         }
+        body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', sans-serif; color: white; }
+        canvas { display: block; }
 
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: var(--primary-bg);
-            color: var(--text);
-            font-family: var(--font-main);
-            user-select: none;
+        /* --- 封面設計 --- */
+        #overlay {
+            position: absolute; inset: 0; background: radial-gradient(circle, #1a1a2e 0%, #05050a 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
         }
-
-        canvas {
-            display: block;
-            cursor: crosshair;
+        #title {
+            font-size: 85px; font-weight: 900; letter-spacing: -2px;
+            background: linear-gradient(to bottom, var(--accent), #7000ff);
+            -webkit-background-clip: text; color: transparent;
+            filter: drop-shadow(0 0 20px rgba(0, 242, 255, 0.4));
+            margin-bottom: 0;
         }
-
-        /* --- UI 元素 --- */
-        .hidden { display: none !important; }
-
-        /* --- 封面/菜單設計 --- */
-        #menu-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle, var(--secondary-bg) 0%, var(--primary-bg) 100%);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-
-        #game-title {
-            font-size: 80px;
-            font-weight: 900;
-            margin-bottom: 10px;
-            background: linear-gradient(45deg, #00ff88, #00bdff, #e94560);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            text-shadow: 0 0 30px rgba(0,255,136,0.3);
-            animation: titlePulse 2s infinite ease-in-out;
-        }
-
-        @keyframes titlePulse {
-            0%, 100% { transform: scale(1); filter: brightness(1); }
-            50% { transform: scale(1.02); filter: brightness(1.1); }
-        }
-
-        #game-subtitle {
-            font-size: 18px;
-            color: rgba(255,255,255,0.7);
-            margin-bottom: 50px;
-            letter-spacing: 2px;
-        }
-
+        #subtitle { color: #888; letter-spacing: 5px; margin-bottom: 40px; }
         #start-btn {
-            padding: 15px 60px;
-            font-size: 24px;
-            font-weight: bold;
-            background-color: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 10px 20px rgba(233, 69, 96, 0.3);
-            transition: all 0.3s ease;
+            padding: 18px 60px; font-size: 22px; background: var(--accent); color: #000;
+            border: none; border-radius: 50px; cursor: pointer; font-weight: bold;
+            transition: 0.3s; box-shadow: 0 0 30px rgba(0, 242, 255, 0.3);
         }
+        #start-btn:hover { transform: scale(1.1); box-shadow: 0 0 50px rgba(0, 242, 255, 0.6); }
 
-        #start-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 30px rgba(233, 69, 96, 0.5);
-            background-color: #ff5e78;
+        /* --- 排行榜 --- */
+        .board {
+            position: absolute; background: var(--panel); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; padding: 15px; backdrop-filter: blur(10px);
         }
+        #permanent-board { bottom: 40px; width: 250px; text-align: center; }
+        #temp-board { top: 20px; right: 20px; width: 200px; }
+        h3 { margin: 0 0 10px 0; font-size: 16px; color: var(--accent); border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .entry { display: flex; justify-content: space-between; font-size: 14px; margin: 4px 0; }
+        .entry.me { color: var(--player); font-weight: bold; }
 
-        /* --- 永久排行榜 (菜單) --- */
-        #menu-highscores {
-            margin-top: 40px;
-            width: 300px;
-            text-align: center;
-            background: rgba(255,255,255,0.05);
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        #menu-highscores h3 { margin-top: 0; color: #00ff88; }
-        
-        .highscore-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .highscore-item:last-child { border-bottom: none; }
-        .hs-rank { color: #888; width: 30px; text-align: left; }
-        .hs-score { color: #fff; font-weight: bold; }
-
-        /* --- 暫時排行榜 (遊戲中) --- */
-        #temp-leaderboard {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 220px;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(5px);
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.1);
-            font-size: 14px;
-            z-index: 10;
-        }
-
-        #temp-leaderboard h3 {
-            margin: 0 0 10px 0;
-            font-size: 16px;
-            text-align: center;
-            color: #00bdff;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-            padding-bottom: 5px;
-        }
-
-        .leaderboard-entry {
-            display: flex;
-            justify-content: space-between;
-            padding: 3px 0;
-        }
-
-        .leaderboard-entry.player {
-            color: #00ff88;
-            font-weight: bold;
-        }
-
-        .entry-rank { width: 30px; color: #888; }
-        .entry-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .entry-score { text-align: right; margin-left: 10px; }
-
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <div id="menu-screen">
-        <div id="game-title">Snake.io</div>
-        <div id="game-subtitle">AI ARENA</div>
-        <button id="start-btn">開始遊戲</button>
-        
-        <div id="menu-highscores">
-            <h3>永久最高分</h3>
-            <div id="highscore-list">
-                </div>
+    <div id="overlay">
+        <h1 id="title">SNAKE.IO</h1>
+        <p id="subtitle">AI ARENA EDITION</p>
+        <button id="start-btn">進入戰場</button>
+        <div id="permanent-board" class="board">
+            <h3>🏆 傳奇排行 (永久)</h3>
+            <div id="hs-content"></div>
         </div>
     </div>
 
-    <div id="temp-leaderboard" class="hidden">
-        <h3>即時排行</h3>
-        <div id="leaderboard-content">
-            </div>
+    <div id="temp-board" class="board hidden">
+        <h3>⚔️ 即時對戰</h3>
+        <div id="temp-content"></div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -176,375 +70,207 @@
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
-        const menuScreen = document.getElementById("menu-screen");
-        const tempLeaderboard = document.getElementById("temp-leaderboard");
-        const leaderboardContent = document.getElementById("leaderboard-content");
-        const highscoreList = document.getElementById("highscore-list");
+        const overlay = document.getElementById("overlay");
         const startBtn = document.getElementById("start-btn");
+        const tempBoard = document.getElementById("temp-board");
 
-        // 設置畫布大小
-        function resizeCanvas() {
+        let snakes = [];
+        let foods = [];
+        let player;
+        let mouse = { x: window.innerWidth/2, y: window.innerHeight/2 };
+        let isRunning = false;
+
+        // 初始化畫布
+        function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        window.addEventListener('resize', resize);
+        resize();
 
-        // 遊戲狀態與設置
-        let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER
-        let animationId;
-        const baseRadius = 12;
-        const foodCount = 100;
-        const aiCount = 8;
-        const baseSpeed = 3;
-        
-        // 排行榜資料
-        let permanentHighscores = [];
-        let allSnakes = []; // 包含玩家和所有 AI
-
-        // 初始化滑鼠
-        let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
-        window.addEventListener('mousemove', (e) => {
+        // 滑鼠位置追蹤
+        window.addEventListener('mousemove', e => {
             mouse.x = e.clientX;
             mouse.y = e.clientY;
         });
 
-        // --- 核心工具函數 ---
-        const random = (min, max) => Math.random() * (max - min) + min;
-        const getDist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
-        const lerpAngle = (a, b, t) => {
-            let d = b - a;
-            if (d < -Math.PI) d += Math.PI * 2;
-            if (d > Math.PI) d -= Math.PI * 2;
-            return a + d * t;
-        };
-
-        // --- 永久排行榜邏輯 ---
-        function loadHighscores() {
-            const storedhs = localStorage.getItem('snakeIoProHS');
-            if (storedhs) {
-                permanentHighscores = JSON.parse(storedhs);
-            } else {
-                permanentHighscores = [
-                    {score: 2000}, {score: 1500}, {score: 1000}, {score: 800}, {score: 500}
-                ];
-                saveHighscores();
+        class Food {
+            constructor() { this.spawn(); }
+            spawn() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.r = Math.random() * 4 + 2;
+                this.color = `hsl(${Math.random() * 360}, 80%, 60%)`;
             }
-            renderMenuHighscores();
-        }
-
-        function saveHighscores() {
-            localStorage.setItem('snakeIoProHS', JSON.stringify(permanentHighscores));
-        }
-
-        function updatePermanentHighscores(newScore) {
-            permanentHighscores.push({score: newScore});
-            permanentHighscores.sort((a, b) => b.score - a.score);
-            permanentHighscores = permanentHighscores.slice(0, 5); // 只保留前5名
-            saveHighscores();
-        }
-
-        function renderMenuHighscores() {
-            highscoreList.innerHTML = permanentHighscores.map((hs, index) => `
-                <div class="highscore-item">
-                    <span class="hs-rank">#${index+1}</span>
-                    <span class="hs-score">${hs.score}</span>
-                </div>
-            `).join('');
-        }
-
-        // --- 實體定義 (Food, Snake, AISnake) ---
-
-        // 食物系統
-        class FoodManager {
-            constructor(count) {
-                this.foods = [];
-                for (let i = 0; i < count; i++) this.foods.push(this.createFood());
-            }
-
-            createFood() {
-                return {
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    radius: random(4, 7),
-                    color: `hsl(${Math.random() * 360}, 100%, 50%)`
-                };
-            }
-
-            respawn(index) { this.foods[index] = this.createFood(); }
-
             draw() {
-                this.foods.forEach(f => {
-                    ctx.beginPath();
-                    ctx.arc(f.x, f.y, f.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = f.color;
-                    ctx.fill();
-                    ctx.closePath();
-                });
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
             }
         }
 
-        // 基礎蛇類
         class Snake {
-            constructor(x, y, radius, color, name, isPlayer = false) {
-                this.segments = [];
-                this.radius = radius;
-                this.color = color;
+            constructor(name, color, isPlayer) {
                 this.name = name;
+                this.color = color;
                 this.isPlayer = isPlayer;
-                this.score = 0;
-                this.speed = baseSpeed;
-                this.angle = random(0, Math.PI * 2);
-                this.length = 20;
-
-                // 初始化身體
-                for (let i = 0; i < this.length; i++) {
-                    this.segments.push({ x: x, y: y });
-                }
+                this.init();
             }
 
-            updateBasicMovement() {
-                // 移動蛇頭
-                let head = {
-                    x: this.segments[0].x + Math.cos(this.angle) * this.speed,
-                    y: this.segments[0].y + Math.sin(this.angle) * this.speed
-                };
-                this.segments.unshift(head);
+            init() {
+                this.segments = [];
+                // AI 數值邏輯：根據玩家長度縮放，但保證大於 250
+                const playerLen = player ? player.segments.length : 50;
+                const baseLen = this.isPlayer ? 40 : Math.max(250, playerLen * (Math.random() * 0.9 + 0.6));
                 
-                // 保持長度
-                if (this.segments.length > this.length) {
-                    this.segments.pop();
+                const startX = Math.random() * canvas.width;
+                const startY = Math.random() * canvas.height;
+                this.angle = Math.random() * Math.PI * 2;
+                this.speed = 3;
+                this.r = 12;
+                this.score = 0;
+
+                for(let i=0; i<baseLen; i++) {
+                    this.segments.push({x: startX, y: startY});
                 }
-
-                // 基礎邊界檢查 (簡單穿牆)
-                if(head.x < -20) head.x = canvas.width + 20;
-                if(head.x > canvas.width + 20) head.x = -20;
-                if(head.y < -20) head.y = canvas.height + 20;
-                if(head.y > canvas.height + 20) head.y = -20;
-            }
-
-            checkFoodEating(foodManager) {
-                const head = this.segments[0];
-                foodManager.foods.forEach((f, index) => {
-                    if (getDist(head.x, head.y, f.x, f.y) < this.radius + f.radius) {
-                        this.score += Math.round(f.radius * 2);
-                        this.length += 2;
-                        foodManager.respawn(index);
-                    }
-                });
-            }
-
-            draw() {
-                // 繪製身體 (從尾到頭)
-                for (let i = this.segments.length - 1; i >= 0; i--) {
-                    const seg = this.segments[i];
-                    ctx.beginPath();
-                    ctx.arc(seg.x, seg.y, this.radius, 0, Math.PI * 2);
-                    const opacity = 1 - (i / this.segments.length) * 0.8;
-                    ctx.fillStyle = i === 0 ? this.color : `${this.color.replace('rgb', 'rgba').replace(')', ', ' + opacity + ')')}`;
-                    ctx.fill();
-                    ctx.closePath();
-                    
-                    // 畫眼睛 (僅頭部)
-                    if(i === 0) {
-                        ctx.fillStyle = "white";
-                        ctx.beginPath();
-                        ctx.arc(seg.x + Math.cos(this.angle+0.5)*8, seg.y + Math.sin(this.angle+0.5)*8, 4, 0, Math.PI*2);
-                        ctx.arc(seg.x + Math.cos(this.angle-0.5)*8, seg.y + Math.sin(seg.angle-0.5)*8, 4, 0, Math.PI*2);
-                        ctx.fill();
-                        
-                        // 畫名字
-                        ctx.fillStyle = "rgba(255,255,255,0.7)";
-                        ctx.font = "12px var(--font-main)";
-                        ctx.textAlign = "center";
-                        ctx.fillText(this.name, seg.x, seg.y - this.radius - 5);
-                    }
-                }
-            }
-        }
-
-        // 玩家蛇
-        class PlayerSnake extends Snake {
-            constructor() {
-                super(canvas.width / 2, canvas.height / 2, baseRadius, 'rgb(0, 255, 136)', 'You', true);
             }
 
             update() {
-                // 轉向滑鼠
-                let targetAngle = Math.atan2(mouse.y - this.segments[0].y, mouse.x - this.segments[0].x);
-                this.angle = lerpAngle(this.angle, targetAngle, 0.15); // 平滑轉向
+                let head = { ...this.segments[0] };
 
-                this.updateBasicMovement();
+                if (this.isPlayer) {
+                    // 滑鼠操控：計算蛇頭到滑鼠的角度
+                    let dx = mouse.x - head.x;
+                    let dy = mouse.y - head.y;
+                    let targetAngle = Math.atan2(dy, dx);
+                    // 平滑轉動
+                    let diff = targetAngle - this.angle;
+                    while(diff < -Math.PI) diff += Math.PI*2;
+                    while(diff > Math.PI) diff -= Math.PI*2;
+                    this.angle += diff * 0.15;
+                } else {
+                    // AI 邏輯：簡單隨機游走 + 爭搶食物
+                    this.angle += Math.sin(Date.now() * 0.001 + this.score) * 0.05;
+                }
+
+                head.x += Math.cos(this.angle) * this.speed;
+                head.y += Math.sin(this.angle) * this.speed;
+
+                // 邊界處理
+                if(head.x < 0) head.x = canvas.width;
+                if(head.x > canvas.width) head.x = 0;
+                if(head.y < 0) head.y = canvas.height;
+                if(head.y > canvas.height) head.y = 0;
+
+                this.segments.unshift(head);
+                this.segments.pop();
+
+                // 檢查吃食物
+                foods.forEach(f => {
+                    if(Math.hypot(head.x - f.x, head.y - f.y) < this.r + f.r) {
+                        f.spawn();
+                        this.score += 10;
+                        for(let i=0; i<3; i++) this.segments.push({...this.segments[this.segments.length-1]});
+                    }
+                });
+            }
+
+            draw() {
+                ctx.save();
+                for(let i = this.segments.length - 1; i >= 0; i--) {
+                    if(i % 3 !== 0 && i !== 0) continue; // 優化效能，不畫每一節
+                    const seg = this.segments[i];
+                    ctx.beginPath();
+                    ctx.arc(seg.x, seg.y, this.r, 0, Math.PI*2);
+                    ctx.fillStyle = i === 0 ? this.color : this.color + "aa";
+                    ctx.fill();
+                    if(i === 0) { // 畫眼睛
+                        ctx.fillStyle = "white";
+                        ctx.beginPath();
+                        ctx.arc(seg.x + Math.cos(this.angle+0.5)*8, seg.y + Math.sin(this.angle+0.5)*8, 4, 0, Math.PI*2);
+                        ctx.arc(seg.x + Math.cos(this.angle-0.5)*8, seg.y + Math.sin(this.angle-0.5)*8, 4, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                }
+                ctx.restore();
             }
         }
 
-        // AI 蛇
-        class AISnake extends Snake {
-            constructor(playerSnake) {
-                // 基礎數值邏輯：本身長度*0.6~1.5 且 必定大於 250
-                const calculatedLength = playerSnake.score * random(0.6, 1.5);
-                const startLength = Math.max(calculatedLength, 250);
-                const startScore = Math.round(startLength * 0.5); // 簡單分數換算
-
-                super(
-                    random(50, canvas.width - 50), random(50, canvas.height - 50),
-                    baseRadius,
-                    `rgb(${random(100,255)}, ${random(100,255)}, ${random(100,255)})`,
-                    'AI Bot ' + Math.floor(random(100, 999)),
-                    false
-                );
-                
-                this.length = startLength;
-                this.score = startScore;
-                
-                // 重新填充身體以匹配長度
-                this.segments = [];
-                for (let i = 0; i < this.length; i++) {
-                    this.segments.push({ x: this.segments[0]?.x || random(0,canvas.width), y: this.segments[0]?.y || random(0,canvas.height) });
-                }
-                
-                this.aiTimer = 0;
-                this.targetFood = null;
-            }
-
-            update(foodManager) {
-                this.aiTimer++;
-
-                // AI 決策邏輯 (簡單 AI)
-                if (this.aiTimer % 30 === 0 || !this.targetFood) {
-                    // 爭搶食物：尋找最近的食物
-                    let minX = Infinity;
-                    foodManager.foods.forEach(f => {
-                        let d = getDist(this.segments[0].x, this.segments[0].y, f.x, f.y);
-                        if (d < minDist) {
-                            minDist = d;
-                            this.targetFood = f;
-                        }
-                    });
-                }
-
-                if (this.targetFood) {
-                    let targetAngle = Math.atan2(this.targetFood.y - this.segments[0].y, this.targetFood.x - this.segments[0].x);
-                    this.angle = lerpAngle(this.angle, targetAngle, 0.08); // AI 轉向較慢
-                }
-
-                // 隨機抖動 (避免太過直線)
-                this.angle += random(-0.02, 0.02);
-
-                this.updateBasicMovement();
-            }
-        }
-
-        // --- 遊戲管理函數 ---
-
-        let foodManager, player;
-
-        function initGame() {
-            foodManager = new FoodManager(foodCount);
-            player = new PlayerSnake();
-            allSnakes = [player];
+        function start() {
+            snakes = [];
+            foods = Array.from({length: 80}, () => new Food());
+            player = new Snake("玩家", "#00ff88", true);
+            snakes.push(player);
+            for(let i=0; i<6; i++) snakes.push(new Snake("AI Bot", "#ff4466", false));
             
-            // 生成 AI 蛇
-            for(let i=0; i<aiCount; i++) {
-                allSnakes.push(new AISnake(player));
+            overlay.classList.add('hidden');
+            tempBoard.classList.remove('hidden');
+            isRunning = true;
+            requestAnimationFrame(loop);
+        }
+
+        function loop() {
+            if(!isRunning) return;
+            ctx.fillStyle = "#0a0a12";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            foods.forEach(f => f.draw());
+
+            snakes.sort((a,b) => b.score - a.score);
+            let leaderboardHTML = "";
+
+            snakes.forEach(s => {
+                s.update();
+                s.draw();
+                leaderboardHTML += `<div class="entry ${s.isPlayer?'me':''}"><span>${s.name}</span><span>${s.score}</span></div>`;
+            });
+
+            document.getElementById("temp-content").innerHTML = leaderboardHTML;
+
+            // 死亡判定 (撞到別人的身體)
+            const head = player.segments[0];
+            for(let s of snakes) {
+                if(s === player) continue;
+                for(let i=10; i<s.segments.length; i+=5) {
+                    if(Math.hypot(head.x - s.segments[i].x, head.y - s.segments[i].y) < player.r + s.r) {
+                        gameOver();
+                        return;
+                    }
+                }
             }
 
-            gameState = 'PLAYING';
-            menuScreen.classList.add('hidden');
-            tempLeaderboard.classList.remove('hidden');
+            requestAnimationFrame(loop);
         }
 
         function gameOver() {
-            gameState = 'GAMEOVER';
-            updatePermanentHighscores(player.score);
-            alert(`遊戲結束！你的分數是：${player.score}`);
-            tempLeaderboard.classList.add('hidden');
-            menuScreen.classList.remove('hidden');
-            loadHighscores(); // 刷新永久排行榜
+            isRunning = false;
+            alert("遊戲結束！最終得分: " + player.score);
+            updatePermanentBoard(player.score);
+            overlay.classList.remove('hidden');
         }
 
-        // --- 更新暫時排行榜 (遊戲中) ---
-        function updateTempLeaderboard() {
-            // 排序所有蛇
-            allSnakes.sort((a, b) => b.score - a.score);
-
-            // 渲染前5名
-            leaderboardContent.innerHTML = allSnakes.slice(0, 5).map((snake, index) => `
-                <div class="leaderboard-entry ${snake.isPlayer ? 'player' : ''}">
-                    <span class="entry-rank">#${index+1}</span>
-                    <span class="entry-name">${snake.name}</span>
-                    <span class="entry-score">${snake.score}</span>
-                </div>
-            `).join('');
+        // 永久排行榜邏輯
+        function updatePermanentBoard(score) {
+            let hs = JSON.parse(localStorage.getItem('snakeHighScores') || "[]");
+            hs.push({score, date: new Date().toLocaleDateString()});
+            hs.sort((a,b) => b.score - a.score);
+            hs = hs.slice(0, 5);
+            localStorage.setItem('snakeHighScores', JSON.stringify(hs));
+            renderHS();
         }
 
-        // --- 主遊戲循環 ---
-        function gameLoop() {
-            if (gameState !== 'PLAYING') return;
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 1. 更新所有實體
-            foodManager.draw();
-            
-            allSnakes.forEach(snake => {
-                snake.update(foodManager);
-                snake.checkFoodEating(foodManager);
-                snake.draw();
-            });
-
-            // 2. 死亡偵測 (io 遊戲核心：頭撞身體)
-            const playerHead = player.segments[0];
-            let isDead = false;
-
-            allSnakes.forEach(snake => {
-                // 檢查玩家是否撞到別人的身體 (不包括自己的頭)
-                for(let i = 1; i < snake.segments.length; i++) {
-                     let seg = snake.segments[i];
-                     // 粗略碰撞檢測 (只在頭部附近檢查以提高性能，這裡簡化)
-                     if (getDist(playerHead.x, playerHead.y, seg.x, seg.y) < player.radius * 0.8 + snake.radius * 0.8) {
-                         isDead = true;
-                         break;
-                     }
-                }
-                if(isDead) return;
-            });
-            
-            // AI 死亡偵測 (簡化，僅撞玩家)
-            allSnakes.forEach((snake, index) => {
-                if(snake.isPlayer) return;
-                let aiHead = snake.segments[0];
-                for(let i=0; i<player.segments.length; i++) {
-                    let seg = player.segments[i];
-                    if(getDist(aiHead.x, aiHead.y, seg.x, seg.y) < snake.radius * 0.8 + player.radius * 0.8) {
-                        // AI 死亡，重生
-                        allSnakes[index] = new AISnake(player);
-                    }
-                }
-            });
-
-            if (isDead) {
-                gameOver();
-                return;
-            }
-
-            // 3. 更新 UI
-            updateTempLeaderboard();
-
-            animationId = requestAnimationFrame(gameLoop);
+        function renderHS() {
+            let hs = JSON.parse(localStorage.getItem('snakeHighScores') || "[]");
+            document.getElementById("hs-content").innerHTML = hs.map((h, i) => 
+                `<div class="entry"><span>#${i+1}</span><span>${h.score}分</span></div>`
+            ).join('');
         }
 
-        // --- 初始化 & 事件監聽 ---
-        loadHighscores();
-
-        startBtn.addEventListener('click', initGame);
-        
-        // 確保在開始遊戲時啟動循環
-        startBtn.addEventListener('click', () => {
-            if (animationId) cancelAnimationFrame(animationId);
-            gameLoop();
-        });
-
+        renderHS();
+        startBtn.addEventListener('click', start);
     </script>
 </body>
 </html>
