@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake.io Arena - 高智能特訓版</title>
+    <title>Snake.io Arena - 終極 AI 智商壓制版</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; user-select: none; }
         canvas { display: block; }
@@ -45,17 +45,17 @@
 <body>
 
 <div id="menu">
-    <h1 style="color:#0f4">SNAKE.IO <span style="color:white">HELL AI</span></h1>
-    <p style="color:#888; margin: 0 0 20px 0;">高智能特訓室 · 敵人具備搶點與圍剿邏輯</p>
+    <h1 style="color:#0f4">SNAKE.IO <span style="color:white">PREDATOR AI</span></h1>
+    <p style="color:#888; margin: 0 0 20px 0;">高智能特訓室 · 雙側雷達避障與堵頭截殺版</p>
 
     <div class="input-box">
         <input type="text" id="player-name-input" placeholder="GUEST" maxlength="12">
     </div>
 
     <div class="btn-group">
-        <button class="preset-btn" onclick="applyPreset(3000, 400, 20, 150, 3.2, 500)">🟢 戰術模擬練習</button>
-        <button class="preset-btn" onclick="applyPreset(3500, 600, 30, 250, 4.2, 800)">⚡ 狂暴搶點對決</button>
-        <button class="preset-btn" onclick="applyPreset(4000, 900, 45, 400, 5.0, 1000)">🔴 智商壓制地獄</button>
+        <button class="preset-btn" onclick="applyPreset(3000, 400, 20, 150, 3.2, 600)">🟢 戰術模擬練習</button>
+        <button class="preset-btn" onclick="applyPreset(3500, 600, 30, 250, 4.2, 1000)">⚡ 狂暴搶點對決</button>
+        <button class="preset-btn" onclick="applyPreset(4000, 900, 45, 400, 5.0, 1500)">🔴 智商壓制地獄</button>
     </div>
 
     <div class="config-title">⚙️ 核心戰場參數控制台</div>
@@ -86,7 +86,7 @@
         </div>
     </div>
 
-    <button id="start-btn" onclick="startGame()">進入特訓</button>
+    <button id="start-btn" onclick="startGame()">進入地獄特訓</button>
     <p class="hint">遊戲中按 [ESC] 可隨時安全退出並紀錄最佳成績</p>
 </div>
 
@@ -115,12 +115,8 @@ let playerName = "GUEST";
 let player;
 
 let RUNTIME_CONFIG = {
-    map: 3000,
-    foodMax: 400,
-    aiCount: 25,
-    startLen: 150,
-    speed: 3.5,
-    magnetLimit: 600
+    map: 3000, foodMax: 400, aiCount: 25,
+    startLen: 150, speed: 3.5, magnetLimit: 600
 };
 
 function syncVal(key) {
@@ -130,12 +126,9 @@ function syncVal(key) {
 }
 
 function applyPreset(map, food, ai, len, speed, mag) {
-    document.getElementById('cfg-map').value = map;
-    document.getElementById('cfg-food').value = food;
-    document.getElementById('cfg-ai').value = ai;
-    document.getElementById('cfg-len').value = len;
-    document.getElementById('cfg-speed').value = speed;
-    document.getElementById('cfg-mag').value = mag;
+    document.getElementById('cfg-map').value = map; document.getElementById('cfg-food').value = food;
+    document.getElementById('cfg-ai').value = ai; document.getElementById('cfg-len').value = len;
+    document.getElementById('cfg-speed').value = speed; document.getElementById('cfg-mag').value = mag;
     ['map', 'food', 'ai', 'len', 'speed', 'mag'].forEach(syncVal);
 }
 
@@ -154,8 +147,7 @@ function updatePermanentUI() {
     const list = document.getElementById('p-list');
     if(records.length === 0) { 
         list.innerHTML = "<div style='color:#555'>尚無特訓紀錄</div>"; 
-        document.getElementById("best-ui").innerText = `BEST: 0`;
-        return; 
+        document.getElementById("best-ui").innerText = `BEST: 0`; return; 
     }
     list.innerHTML = records.map((r, i) => 
         `<div style="margin:5px 0">${i+1}. <span style="color:#888">${r.name}</span> <span style="float:right;color:#ff0;font-weight:bold">${r.score}</span></div>`
@@ -173,7 +165,6 @@ function saveRecord(score) {
     updatePermanentUI();
 }
 
-// --- 貪食蛇類別 ---
 class Snake {
     constructor(x, y, color, isPlayer = false, startLen = 150) {
         this.body = [];
@@ -192,18 +183,12 @@ class Snake {
         }
     }
 
-    getWidth() { 
-        return Math.min(50, 10 + Math.sqrt(this.length) * 0.4); 
-    }
-
-    getTurnSpeed() {
-        return Math.max(0.04, 0.13 - Math.min(0.07, this.length / 4000));
-    }
+    getWidth() { return Math.min(50, 10 + Math.sqrt(this.length) * 0.4); }
+    getTurnSpeed() { return Math.max(0.04, 0.14 - Math.min(0.08, this.length / 4000)); } // 稍微提升全體轉彎靈活度
 
     update() {
         if (this.dead) return;
 
-        // 平滑漸進式轉向
         let angleDiff = this.targetAngle - this.angle;
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
@@ -215,27 +200,31 @@ class Snake {
             this.angle += Math.sign(angleDiff) * turnSpeed;
         }
 
-        // 衝刺狀態處理
         let currentSpeed = RUNTIME_CONFIG.speed;
         if (this.isBoosting && this.length > 120) {
-            currentSpeed *= 1.6;
+            currentSpeed *= 1.65;
             if (Math.random() > 0.7) {
                 this.length -= 1.5;
                 if (Math.random() > 0.5) spawnFood(this.body[this.body.length - 1].x, this.body[this.body.length - 1].y, false, this.color);
             }
         }
 
-        // 移動頭部
         let head = {
             x: this.body[0].x + Math.cos(this.angle) * currentSpeed,
             y: this.body[0].y + Math.sin(this.angle) * currentSpeed
         };
-        this.body.unshift(head);
 
-        let targetSegmentCount = Math.max(5, Math.floor(this.length / 3));
-        while (this.body.length > targetSegmentCount) {
-            this.body.pop();
+        if (!this.isPlayer) {
+            let maxBound = RUNTIME_CONFIG.map - 5;
+            if (head.x > maxBound) head.x = maxBound;
+            if (head.x < -maxBound) head.x = -maxBound;
+            if (head.y > maxBound) head.y = maxBound;
+            if (head.y < -maxBound) head.y = -maxBound;
         }
+
+        this.body.unshift(head);
+        let targetSegmentCount = Math.max(5, Math.floor(this.length / 3));
+        while (this.body.length > targetSegmentCount) this.body.pop();
     }
 
     draw() {
@@ -244,37 +233,26 @@ class Snake {
         let width = this.getWidth();
 
         let isInvulnerable = (Date.now() - this.spawnTime) < 1500;
-        if (isInvulnerable && Math.floor(Date.now() / 100) % 2 === 0) {
-            ctx.globalAlpha = 0.3;
-        }
+        if (isInvulnerable && Math.floor(Date.now() / 100) % 2 === 0) ctx.globalAlpha = 0.3;
 
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = width;
+        ctx.lineCap = "round"; ctx.lineJoin = "round";
+        ctx.strokeStyle = this.color; ctx.lineWidth = width;
         ctx.beginPath();
         ctx.moveTo(this.body[0].x, this.body[0].y);
-        for (let i = 1; i < this.body.length; i++) {
-            ctx.lineTo(this.body[i].x, this.body[i].y);
-        }
+        for (let i = 1; i < this.body.length; i++) ctx.lineTo(this.body[i].x, this.body[i].y);
         ctx.stroke();
 
         let head = this.body[0];
         ctx.fillStyle = "#fff";
-        let eyeOffsetAngle = 0.5;
-        let eyeDist = width * 0.25;
-        
+        let eyeOffsetAngle = 0.5, eyeDist = width * 0.25;
         let eye1X = head.x + Math.cos(this.angle + eyeOffsetAngle) * eyeDist;
         let eye1Y = head.y + Math.sin(this.angle + eyeOffsetAngle) * eyeDist;
         let eye2X = head.x + Math.cos(this.angle - eyeOffsetAngle) * eyeDist;
         let eye2Y = head.y + Math.sin(this.angle - eyeOffsetAngle) * eyeDist;
-        
         ctx.beginPath(); ctx.arc(eye1X, eye1Y, width * 0.14, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(eye2X, eye2Y, width * 0.14, 0, Math.PI * 2); ctx.fill();
 
-        ctx.fillStyle = "rgba(255,255,255,0.6)";
-        ctx.font = "11px Arial";
-        ctx.textAlign = "center";
+        ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.font = "11px Arial"; ctx.textAlign = "center";
         ctx.fillText(this.name, head.x, head.y - width/2 - 6);
         ctx.restore();
     }
@@ -297,36 +275,24 @@ function spawnFood(x, y, big = false, color = null) {
     });
 }
 
-// 📌 核心機制修正：AI 生成時，體型會根據玩家當前大小的 20% ~ 110% 進行映射動態縮放
 function spawnAI() {
-    let bound = RUNTIME_CONFIG.map;
+    let bound = RUNTIME_CONFIG.map - 50; 
     let baseLen = player ? player.length : RUNTIME_CONFIG.startLen;
-    let randomScale = 0.2 + Math.random() * 0.9; // 20% 到 110% 區間
+    let randomScale = 0.2 + Math.random() * 0.9; 
     let targetLen = Math.max(80, baseLen * randomScale);
-
-    ai_bots.push(new Snake(
-        (Math.random() - 0.5) * bound * 2, 
-        (Math.random() - 0.5) * bound * 2, 
-        `hsl(${Math.random() * 360}, 85%, 60%)`, 
-        false, 
-        targetLen
-    ));
+    ai_bots.push(new Snake((Math.random() - 0.5) * bound * 2, (Math.random() - 0.5) * bound * 2, `hsl(${Math.random() * 360}, 85%, 60%)`, false, targetLen));
 }
 
-// --- 核心遊戲迴圈 ---
 function loop() {
     requestAnimationFrame(loop);
     if (!started) return;
 
     let currentMapSize = RUNTIME_CONFIG.map;
+    ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = "#050505";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // 鏡頭滑順跟隨
     camera.x += (player.body[0].x - camera.x) * 0.08;
     camera.y += (player.body[0].y - camera.y) * 0.08;
-    let targetZoom = Math.max(0.38, 1.35 - (player.getWidth() / 40));
+    let targetZoom = Math.max(0.35, 1.35 - (player.getWidth() / 40));
     camera.zoom += (targetZoom - camera.zoom) * 0.03;
 
     ctx.save();
@@ -334,190 +300,194 @@ function loop() {
     ctx.scale(camera.zoom, camera.zoom);
     ctx.translate(-camera.x, -camera.y);
 
-    // 網格邊界
     ctx.strokeStyle = "#131313"; ctx.lineWidth = 1.5;
-    for(let x = -currentMapSize; x <= currentMapSize; x += 200) {
-        ctx.beginPath(); ctx.moveTo(x, -currentMapSize); ctx.lineTo(x, currentMapSize); ctx.stroke();
-    }
-    for(let y = -currentMapSize; y <= currentMapSize; y += 200) {
-        ctx.beginPath(); ctx.moveTo(-currentMapSize, y); ctx.lineTo(currentMapSize, y); ctx.stroke();
-    }
+    for(let x = -currentMapSize; x <= currentMapSize; x += 200) { ctx.beginPath(); ctx.moveTo(x, -currentMapSize); ctx.lineTo(x, currentMapSize); ctx.stroke(); }
+    for(let y = -currentMapSize; y <= currentMapSize; y += 200) { ctx.beginPath(); ctx.moveTo(-currentMapSize, y); ctx.lineTo(currentMapSize, y); ctx.stroke(); }
     ctx.strokeStyle = "#b50000"; ctx.lineWidth = 8;
     ctx.strokeRect(-currentMapSize, -currentMapSize, currentMapSize*2, currentMapSize*2);
 
-    // 玩家行為控制
-    let dx = mouse.x - canvas.width / 2;
-    let dy = mouse.y - canvas.height / 2;
+    let dx = mouse.x - canvas.width / 2; let dy = mouse.y - canvas.height / 2;
     player.targetAngle = Math.atan2(dy, dx);
     player.isBoosting = mouse.down;
     player.update();
 
     if (Math.abs(player.body[0].x) > currentMapSize || Math.abs(player.body[0].y) > currentMapSize) player.dead = true;
 
-    // 所有活著的蛇集合
     let allSnakes = [player, ...ai_bots];
-
-    // 食物進食與多方共同吸附搶點判定
     let magnetRange = RUNTIME_CONFIG.magnetLimit;
+
     for (let i = foods.length - 1; i >= 0; i--) {
         let f = foods[i];
         let nearestSnake = null;
         let minFDist = 99999;
 
-        // 判定哪條蛇離這個點數最近（實現玩家與AI一起搶點的動態競爭）
         allSnakes.forEach(s => {
             if (s.dead) return;
-            let sHead = s.body[0];
-            let sdx = sHead.x - f.x, sdy = sHead.y - f.y;
+            let sdx = s.body[0].x - f.x, sdy = s.body[0].y - f.y;
             let sdist = Math.sqrt(sdx*sdx + sdy*sdy);
-            if (sdist < minFDist) {
-                minFDist = sdist;
-                nearestSnake = s;
-            }
+            if (sdist < minFDist) { minFDist = sdist; nearestSnake = s; }
         });
 
         if (nearestSnake && minFDist < magnetRange) {
-            let sHead = nearestSnake.body[0];
-            f.x += ((sHead.x - f.x) / (minFDist || 1)) * (RUNTIME_CONFIG.speed * 1.4);
-            f.y += ((sHead.y - f.y) / (minFDist || 1)) * (RUNTIME_CONFIG.speed * 1.4);
+            let pullSpeed = RUNTIME_CONFIG.speed * 4.5; 
+            f.x += ((nearestSnake.body[0].x - f.x) / (minFDist || 1)) * pullSpeed;
+            f.y += ((nearestSnake.body[0].y - f.y) / (minFDist || 1)) * pullSpeed;
         }
 
-        if (nearestSnake && minFDist < nearestSnake.getWidth() * 0.58) {
+        if (nearestSnake && minFDist < nearestSnake.getWidth() * 0.85) {
             nearestSnake.length += f.size * 2.2;
             foods.splice(i, 1);
             spawnFood();
         } else {
-            ctx.fillStyle = f.color;
-            ctx.beginPath(); ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = f.color; ctx.beginPath(); ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2); ctx.fill();
         }
     }
 
-    // 🧠 戰略級 AI 大腦決策系統 🧠
+    // 🧠 終極 AI 決策大腦 (Whisker 雙側雷達與截殺邏輯)
     ai_bots.forEach(s => {
         if (s.dead) return;
         let head = s.body[0];
-        s.isBoosting = false; // 預設不衝刺
+        s.isBoosting = false; 
 
-        // 1. 基礎避險雷達：防衛判定（防止自己撞擊任何人的身體）
         let dangerDetected = false;
-        let避險角度 = 0;
+        let bestEscapeAngle = s.targetAngle;
 
-        for (let other of allSnakes) {
-            if (other.dead || (Date.now() - other.spawnTime < 1000)) continue;
-            let checkInterval = other.isPlayer ? 2 : 4; 
-            
-            // 掃描他人身體關節
-            for (let j = 0; j < other.body.length; j += checkInterval) {
-                let ob = other.body[j];
-                let odx = ob.x - head.x;
-                let ody = ob.y - head.y;
-                let odist = Math.sqrt(odx*odx + ody*ody);
-                
-                // 如果距離太近，且對方在前方視角內，啟動強行緊急迴避
-                let dangerZone = (s.getWidth() + other.getWidth()) * 1.3;
-                if (odist < dangerZone) {
-                    dangerDetected = true;
-                    // 計算反向逃逸切線角度
-                    避險角度 = Math.atan2(ody, odx) + Math.PI + (Math.random() - 0.5);
-                    break;
-                }
-            }
-            if (dangerDetected) break;
+        // 1. 牆角危機檢測
+        let wallDangerZone = 120; 
+        if (Math.abs(head.x) > (currentMapSize - wallDangerZone) || Math.abs(head.y) > (currentMapSize - wallDangerZone)) {
+            dangerDetected = true;
+            bestEscapeAngle = Math.atan2(0 - head.y, 0 - head.x) + (Math.random() - 0.5) * 0.5;
+            s.isBoosting = true; 
         }
 
-        // 2. 決策分流處理
-        if (dangerDetected) {
-            s.targetAngle = 避險角度;
-            s.isBoosting = true; // 遭遇危險時自動開啟急轉彎加速
-        } else {
-            // 安全狀態：進入「覓食搶點」與「圍剿殺敵」邏輯
-            let playerDist = Math.sqrt((player.body[0].x - head.x)**2 + (player.body[0].y - head.y)**2);
+        // 2. 雷達避障計算：計算左右兩側的危險權重
+        if (!dangerDetected) {
+            let leftDanger = 0;
+            let rightDanger = 0;
+            let immediateDanger = false;
 
-            // 主動獵殺機制：如果玩家在身邊，且自己體型大於玩家，則有機率發動攔截包夾
-            if (playerDist < 450 && s.length > player.length && Math.random() > 0.4) {
-                // 預判玩家前進方向進行精準攔截
-                let leadX = player.body[0].x + Math.cos(player.angle) * 80;
-                let leadY = player.body[0].y + Math.sin(player.angle) * 80;
-                s.targetAngle = Math.atan2(leadY - head.y, leadX - head.x);
-                if (playerDist < 200) s.isBoosting = true; // 距離夠近直接開加速執行截殺
-            } 
-            // 基礎機制：集體尋路搶吃最近點數
-            else if (Math.random() > 0.85 && foods.length > 0) {
-                let nearestF = foods[0];
-                let minDist = 99999;
-                // 局部抽樣尋找最近點數
-                for (let k = 0; k < 15; k++) {
-                    let tf = foods[Math.floor(Math.random() * foods.length)];
-                    let d = (tf.x - head.x)**2 + (tf.y - head.y)**2;
-                    if (d < minDist) { minDist = d; nearestF = tf; }
+            for (let other of allSnakes) {
+                if (other.dead || other === s || (Date.now() - other.spawnTime < 1000)) continue;
+                let checkInterval = other.isPlayer ? 1 : 3; 
+                let dangerRadius = (s.getWidth() + other.getWidth()) * 1.5;
+
+                for (let j = 0; j < other.body.length; j += checkInterval) {
+                    let ob = other.body[j];
+                    let odx = ob.x - head.x;
+                    let ody = ob.y - head.y;
+                    let odist = Math.sqrt(odx*odx + ody*ody);
+                    
+                    if (odist < dangerRadius * 1.5) {
+                        let angleToObstacle = Math.atan2(ody, odx);
+                        let relAngle = angleToObstacle - s.angle;
+                        while (relAngle <= -Math.PI) relAngle += Math.PI * 2;
+                        while (relAngle > Math.PI) relAngle -= Math.PI * 2;
+
+                        if (odist < dangerRadius * 0.9) immediateDanger = true;
+
+                        // 判斷障礙物在左邊還是右邊，並加權危險值
+                        if (Math.abs(relAngle) < Math.PI / 1.5) { // 視角前方的障礙
+                            let weight = 100 / Math.max(1, odist);
+                            if (relAngle > 0) rightDanger += weight; 
+                            else leftDanger += weight; 
+                        }
+                    }
                 }
-                s.targetAngle = Math.atan2(nearestF.y - head.y, nearestF.x - head.x);
-                
-                // 如果離食物近且有人在附近，開啟衝刺加速搶點
-                if (minDist < 200 * 200 && Math.random() > 0.5) s.isBoosting = true;
+            }
+
+            if (immediateDanger || leftDanger > 0 || rightDanger > 0) {
+                dangerDetected = true;
+                // 聰明轉向：往危險係數較低的那一側急轉彎
+                if (leftDanger > rightDanger) {
+                    bestEscapeAngle = s.angle + Math.PI / 2 + (Math.random() * 0.3); // 右轉
+                } else {
+                    bestEscapeAngle = s.angle - Math.PI / 2 - (Math.random() * 0.3); // 左轉
+                }
+                if (immediateDanger) s.isBoosting = true; 
+            }
+        }
+
+        // 3. 獵殺與尋路分流
+        if (dangerDetected) {
+            s.targetAngle = bestEscapeAngle;
+        } else {
+            let targetSnake = null;
+            let minTargetDist = 800; 
+
+            // 尋找獵殺目標（玩家或其他體型較小的AI）
+            for (let other of allSnakes) {
+                if (other.dead || other === s) continue;
+                if (s.length > other.length * 0.8) {
+                    let dist = Math.sqrt((other.body[0].x - head.x)**2 + (other.body[0].y - head.y)**2);
+                    if (dist < minTargetDist) { minTargetDist = dist; targetSnake = other; }
+                }
+            }
+
+            // 發動預判截殺 (Cut-off)
+            if (targetSnake && minTargetDist < 400 && Math.random() > 0.15) {
+                let speedScale = targetSnake.isBoosting ? 120 : 70;
+                let leadX = targetSnake.body[0].x + Math.cos(targetSnake.angle) * speedScale;
+                let leadY = targetSnake.body[0].y + Math.sin(targetSnake.angle) * speedScale;
+                s.targetAngle = Math.atan2(leadY - head.y, leadX - head.x);
+                if (minTargetDist < 250) s.isBoosting = true; // 距離進入斬殺線，開啟加速堵頭
+            } 
+            // 貪婪尋路機制：尋找最「划算」的點數（大顆且距離近）
+            else if (foods.length > 0) {
+                let bestFood = foods[0];
+                let maxScore = -9999;
+                for (let k = 0; k < 20; k++) {
+                    let tf = foods[Math.floor(Math.random() * foods.length)];
+                    let dist = Math.sqrt((tf.x - head.x)**2 + (tf.y - head.y)**2);
+                    let score = (tf.size * 150) - dist; // 食物越大加分越多，距離越遠扣分越多
+                    if (score > maxScore) { maxScore = score; bestFood = tf; }
+                }
+                s.targetAngle = Math.atan2(bestFood.y - head.y, bestFood.x - head.x);
+                if (maxScore > 100 && Math.random() > 0.6) s.isBoosting = true; // 看到肥肉主動衝刺搶食
             }
         }
 
         s.update();
-        if (Math.abs(head.x) > currentMapSize || Math.abs(head.y) > currentMapSize) s.dead = true;
     });
 
-    // ⚔️ 精準物理碰撞交叉檢測系統 ⚔️
     allSnakes.forEach(attacker => {
         if (attacker.dead || (Date.now() - attacker.spawnTime < 1500)) return;
-
         let head = attacker.body[0];
         let rA = attacker.getWidth() * 0.42;
 
         allSnakes.forEach(victim => {
             if (victim.dead || attacker === victim) return;
-
             let rV = victim.getWidth() * 0.45;
             let safeDistance = rA + rV;
 
             for (let j = 0; j < victim.body.length; j += 2) { 
-                let dx = head.x - victim.body[j].x;
-                let dy = head.y - victim.body[j].y;
-                
-                if (dx*dx + dy*dy < safeDistance * safeDistance) {
-                    attacker.dead = true;
-                    return;
-                }
+                let dx = head.x - victim.body[j].x, dy = head.y - victim.body[j].y;
+                if (dx*dx + dy*dy < safeDistance * safeDistance) { attacker.dead = true; return; }
             }
         });
-
         if (attacker.dead) toDie.push(attacker);
     });
 
-    // 結算死亡與重生
     if (player.dead) { 
         saveRecord(player.length); 
         alert(`特訓結束！最終長度分數: ${Math.floor(player.length)}`);
         exitToMenu(); 
-        ctx.restore();
-        return;
+        ctx.restore(); return;
     }
 
     toDie.forEach(s => {
-        let count = Math.min(35, Math.floor(s.length / 35));
+        let count = Math.min(45, Math.floor(s.length / 30));
         for(let k = 0; k < count; k++) {
             let seg = s.body[Math.floor(Math.random() * s.body.length)];
             if(seg) spawnFood(seg.x + (Math.random()-0.5)*30, seg.y + (Math.random()-0.5)*30, true, s.color);
         }
         let index = ai_bots.indexOf(s);
-        if(index > -1) { 
-            ai_bots.splice(index, 1); 
-            spawnAI(); // 重新生成時會基於目前新體型動態計算
-        }
+        if(index > -1) { ai_bots.splice(index, 1); spawnAI(); }
     });
     toDie = [];
 
-    // 繪製
-    ai_bots.forEach(a => a.draw()); 
-    player.draw();
+    ai_bots.forEach(a => a.draw()); player.draw();
     ctx.restore();
 
-    // 更新面板
     document.getElementById("cur-ui").innerText = `SCORE: ${Math.floor(player.length)}`;
     let ranking = [player, ...ai_bots].sort((a,b)=>b.length - a.length).slice(0, 8);
     document.getElementById("ui-layer").innerHTML = `<b>🏆 即時特訓排行</b><hr>` + 
@@ -525,31 +495,23 @@ function loop() {
 }
 
 function startGame() {
-    let inputName = document.getElementById("player-name-input").value.trim();
-    playerName = inputName || "GUEST";
-    captureConfig();
-    initGame();
-    started = true;
+    playerName = document.getElementById("player-name-input").value.trim() || "GUEST";
+    captureConfig(); initGame(); started = true;
     document.getElementById("menu").style.display = "none";
 }
 
 function exitToMenu() {
-    if (!started) return;
-    saveRecord(player.length);
-    started = false;
-    document.getElementById("menu").style.display = "flex";
-    updatePermanentUI();
+    if (!started) return; saveRecord(player.length); started = false;
+    document.getElementById("menu").style.display = "flex"; updatePermanentUI();
 }
 
 window.addEventListener("keydown", e => { if (e.key === "Escape" || e.key === "Esc") exitToMenu(); });
 window.addEventListener("mousemove", e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 window.addEventListener("mousedown", () => mouse.down = true);
 window.addEventListener("mouseup", () => mouse.down = false);
+window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
 
-function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-window.addEventListener('resize', resize);
-
-resize();
+canvas.width = window.innerWidth; canvas.height = window.innerHeight;
 ['map', 'food', 'ai', 'len', 'speed', 'mag'].forEach(syncVal);
 updatePermanentUI();
 loop();
