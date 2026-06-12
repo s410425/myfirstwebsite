@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake.io Arena - 終極 AI 智商壓制版 (高靈敏手感)</title>
+    <title>Snake.io Arena - 終極 AI 智商壓制版 (防空降殺手版)</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; user-select: none; }
         canvas { display: block; }
@@ -46,7 +46,7 @@
 
 <div id="menu">
     <h1 style="color:#0f4">SNAKE.IO <span style="color:white">AGILE AI</span></h1>
-    <p style="color:#888; margin: 0 0 20px 0;">高智能特訓室 · 跑車級高靈敏度與運鏡優化版</p>
+    <p style="color:#888; margin: 0 0 20px 0;">高智能特訓室 · 防空降殺手視野外重生版</p>
 
     <div class="input-box">
         <input type="text" id="player-name-input" placeholder="GUEST" maxlength="12">
@@ -184,12 +184,7 @@ class Snake {
     }
 
     getWidth() { return Math.min(50, 10 + Math.sqrt(this.length) * 0.4); }
-    
-    // ⚡ 靈敏度優化核心：提高基礎轉彎上限，減少長度帶來的遲緩懲罰
-    getTurnSpeed() { 
-        // 原本是 Math.max(0.04, 0.14 - ...)，現在上限拉高到 0.25，保底 0.08
-        return Math.max(0.08, 0.25 - Math.min(0.12, this.length / 6000)); 
-    } 
+    getTurnSpeed() { return Math.max(0.08, 0.25 - Math.min(0.12, this.length / 6000)); } 
 
     update() {
         if (this.dead) return;
@@ -280,12 +275,47 @@ function spawnFood(x, y, big = false, color = null) {
     });
 }
 
+// 🛡️ 核心修改：視野外重生邏輯
 function spawnAI() {
     let bound = RUNTIME_CONFIG.map - 50; 
     let baseLen = player ? player.length : RUNTIME_CONFIG.startLen;
     let randomScale = 0.2 + Math.random() * 0.9; 
     let targetLen = Math.max(80, baseLen * randomScale);
-    ai_bots.push(new Snake((Math.random() - 0.5) * bound * 2, (Math.random() - 0.5) * bound * 2, `hsl(${Math.random() * 360}, 85%, 60%)`, false, targetLen));
+    
+    let spawnX, spawnY;
+    let validSpawn = false;
+    let attempts = 0;
+    
+    // 計算螢幕的最長邊，除以當前縮放，推算出安全的視野外距離
+    let safeRadius = 1200; 
+    if (player && !player.dead) {
+        safeRadius = (Math.max(canvas.width, canvas.height) / camera.zoom) * 0.7;
+    }
+
+    // 嘗試在視野外生成 (最多嘗試 50 次，避免無限迴圈卡死)
+    while (!validSpawn && attempts < 50) {
+        spawnX = (Math.random() - 0.5) * bound * 2;
+        spawnY = (Math.random() - 0.5) * bound * 2;
+        
+        if (player && !player.dead) {
+            let pHead = player.body[0];
+            let distToPlayer = Math.sqrt((spawnX - pHead.x)**2 + (spawnY - pHead.y)**2);
+            if (distToPlayer > safeRadius) {
+                validSpawn = true; // 距離夠遠，安全！
+            }
+        } else {
+            validSpawn = true;
+        }
+        attempts++;
+    }
+
+    // 如果地圖太小，50次都找不到視野外的位置，就強制放在地圖的對角線邊緣
+    if (!validSpawn) {
+        spawnX = (Math.random() > 0.5 ? 1 : -1) * (bound - 100);
+        spawnY = (Math.random() > 0.5 ? 1 : -1) * (bound - 100);
+    }
+
+    ai_bots.push(new Snake(spawnX, spawnY, `hsl(${Math.random() * 360}, 85%, 60%)`, false, targetLen));
 }
 
 function loop() {
@@ -295,7 +325,6 @@ function loop() {
     let currentMapSize = RUNTIME_CONFIG.map;
     ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // ⚡ 運鏡手感優化：追蹤係數從 0.08 提高到 0.15，減少畫面拖沓感
     camera.x += (player.body[0].x - camera.x) * 0.15;
     camera.y += (player.body[0].y - camera.y) * 0.15;
     let targetZoom = Math.max(0.35, 1.35 - (player.getWidth() / 40));
