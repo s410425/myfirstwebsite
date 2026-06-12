@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake.io Arena - 終極 AI 智商壓制版</title>
+    <title>Snake.io Arena - 終極 AI 智商壓制版 (高靈敏手感)</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; user-select: none; }
         canvas { display: block; }
@@ -45,8 +45,8 @@
 <body>
 
 <div id="menu">
-    <h1 style="color:#0f4">SNAKE.IO <span style="color:white">PREDATOR AI</span></h1>
-    <p style="color:#888; margin: 0 0 20px 0;">高智能特訓室 · 雙側雷達避障與堵頭截殺版</p>
+    <h1 style="color:#0f4">SNAKE.IO <span style="color:white">AGILE AI</span></h1>
+    <p style="color:#888; margin: 0 0 20px 0;">高智能特訓室 · 跑車級高靈敏度與運鏡優化版</p>
 
     <div class="input-box">
         <input type="text" id="player-name-input" placeholder="GUEST" maxlength="12">
@@ -86,7 +86,7 @@
         </div>
     </div>
 
-    <button id="start-btn" onclick="startGame()">進入地獄特訓</button>
+    <button id="start-btn" onclick="startGame()">進入特訓</button>
     <p class="hint">遊戲中按 [ESC] 可隨時安全退出並紀錄最佳成績</p>
 </div>
 
@@ -184,7 +184,12 @@ class Snake {
     }
 
     getWidth() { return Math.min(50, 10 + Math.sqrt(this.length) * 0.4); }
-    getTurnSpeed() { return Math.max(0.04, 0.14 - Math.min(0.08, this.length / 4000)); } // 稍微提升全體轉彎靈活度
+    
+    // ⚡ 靈敏度優化核心：提高基礎轉彎上限，減少長度帶來的遲緩懲罰
+    getTurnSpeed() { 
+        // 原本是 Math.max(0.04, 0.14 - ...)，現在上限拉高到 0.25，保底 0.08
+        return Math.max(0.08, 0.25 - Math.min(0.12, this.length / 6000)); 
+    } 
 
     update() {
         if (this.dead) return;
@@ -290,10 +295,11 @@ function loop() {
     let currentMapSize = RUNTIME_CONFIG.map;
     ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    camera.x += (player.body[0].x - camera.x) * 0.08;
-    camera.y += (player.body[0].y - camera.y) * 0.08;
+    // ⚡ 運鏡手感優化：追蹤係數從 0.08 提高到 0.15，減少畫面拖沓感
+    camera.x += (player.body[0].x - camera.x) * 0.15;
+    camera.y += (player.body[0].y - camera.y) * 0.15;
     let targetZoom = Math.max(0.35, 1.35 - (player.getWidth() / 40));
-    camera.zoom += (targetZoom - camera.zoom) * 0.03;
+    camera.zoom += (targetZoom - camera.zoom) * 0.05;
 
     ctx.save();
     ctx.translate(canvas.width / 2, canvas.height / 2);
@@ -343,7 +349,6 @@ function loop() {
         }
     }
 
-    // 🧠 終極 AI 決策大腦 (Whisker 雙側雷達與截殺邏輯)
     ai_bots.forEach(s => {
         if (s.dead) return;
         let head = s.body[0];
@@ -352,7 +357,6 @@ function loop() {
         let dangerDetected = false;
         let bestEscapeAngle = s.targetAngle;
 
-        // 1. 牆角危機檢測
         let wallDangerZone = 120; 
         if (Math.abs(head.x) > (currentMapSize - wallDangerZone) || Math.abs(head.y) > (currentMapSize - wallDangerZone)) {
             dangerDetected = true;
@@ -360,7 +364,6 @@ function loop() {
             s.isBoosting = true; 
         }
 
-        // 2. 雷達避障計算：計算左右兩側的危險權重
         if (!dangerDetected) {
             let leftDanger = 0;
             let rightDanger = 0;
@@ -385,8 +388,7 @@ function loop() {
 
                         if (odist < dangerRadius * 0.9) immediateDanger = true;
 
-                        // 判斷障礙物在左邊還是右邊，並加權危險值
-                        if (Math.abs(relAngle) < Math.PI / 1.5) { // 視角前方的障礙
+                        if (Math.abs(relAngle) < Math.PI / 1.5) { 
                             let weight = 100 / Math.max(1, odist);
                             if (relAngle > 0) rightDanger += weight; 
                             else leftDanger += weight; 
@@ -397,24 +399,21 @@ function loop() {
 
             if (immediateDanger || leftDanger > 0 || rightDanger > 0) {
                 dangerDetected = true;
-                // 聰明轉向：往危險係數較低的那一側急轉彎
                 if (leftDanger > rightDanger) {
-                    bestEscapeAngle = s.angle + Math.PI / 2 + (Math.random() * 0.3); // 右轉
+                    bestEscapeAngle = s.angle + Math.PI / 2 + (Math.random() * 0.3); 
                 } else {
-                    bestEscapeAngle = s.angle - Math.PI / 2 - (Math.random() * 0.3); // 左轉
+                    bestEscapeAngle = s.angle - Math.PI / 2 - (Math.random() * 0.3); 
                 }
                 if (immediateDanger) s.isBoosting = true; 
             }
         }
 
-        // 3. 獵殺與尋路分流
         if (dangerDetected) {
             s.targetAngle = bestEscapeAngle;
         } else {
             let targetSnake = null;
             let minTargetDist = 800; 
 
-            // 尋找獵殺目標（玩家或其他體型較小的AI）
             for (let other of allSnakes) {
                 if (other.dead || other === s) continue;
                 if (s.length > other.length * 0.8) {
@@ -423,26 +422,24 @@ function loop() {
                 }
             }
 
-            // 發動預判截殺 (Cut-off)
             if (targetSnake && minTargetDist < 400 && Math.random() > 0.15) {
                 let speedScale = targetSnake.isBoosting ? 120 : 70;
                 let leadX = targetSnake.body[0].x + Math.cos(targetSnake.angle) * speedScale;
                 let leadY = targetSnake.body[0].y + Math.sin(targetSnake.angle) * speedScale;
                 s.targetAngle = Math.atan2(leadY - head.y, leadX - head.x);
-                if (minTargetDist < 250) s.isBoosting = true; // 距離進入斬殺線，開啟加速堵頭
+                if (minTargetDist < 250) s.isBoosting = true; 
             } 
-            // 貪婪尋路機制：尋找最「划算」的點數（大顆且距離近）
             else if (foods.length > 0) {
                 let bestFood = foods[0];
                 let maxScore = -9999;
                 for (let k = 0; k < 20; k++) {
                     let tf = foods[Math.floor(Math.random() * foods.length)];
                     let dist = Math.sqrt((tf.x - head.x)**2 + (tf.y - head.y)**2);
-                    let score = (tf.size * 150) - dist; // 食物越大加分越多，距離越遠扣分越多
+                    let score = (tf.size * 150) - dist; 
                     if (score > maxScore) { maxScore = score; bestFood = tf; }
                 }
                 s.targetAngle = Math.atan2(bestFood.y - head.y, bestFood.x - head.x);
-                if (maxScore > 100 && Math.random() > 0.6) s.isBoosting = true; // 看到肥肉主動衝刺搶食
+                if (maxScore > 100 && Math.random() > 0.6) s.isBoosting = true; 
             }
         }
 
