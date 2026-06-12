@@ -288,7 +288,7 @@ function spawnAI() {
 }
 
 function loop() {
-    requestAnimationFrame(loop);
+   requestAnimationFrame(loop);
     if (!started) return;
 
     let currentMapSize = RUNTIME_CONFIG.map;
@@ -313,7 +313,6 @@ function loop() {
     let dx = mouse.x - canvas.width / 2; let dy = mouse.y - canvas.height / 2;
     let distToMouse = Math.sqrt(dx*dx + dy*dy);
     
-    // 【修復 1】防打結滑鼠盲區 (Deadzone)
     if (distToMouse > 25) {
         player.targetAngle = Math.atan2(dy, dx);
     }
@@ -353,6 +352,7 @@ function loop() {
         }
     }
 
+    // 🌟 這裡就是修正後的 AI 避險與平滑轉向邏輯 🌟
     ai_bots.forEach(s => {
         if (s.dead) return;
         let head = s.body[0];
@@ -361,11 +361,10 @@ function loop() {
         let dangerDetected = false;
         let bestEscapeAngle = s.targetAngle;
 
-        // 加大牆角防護範圍，確保有足夠的迴轉半徑
         let wallDangerZone = 250; 
         if (Math.abs(head.x) > (currentMapSize - wallDangerZone) || Math.abs(head.y) > (currentMapSize - wallDangerZone)) {
             dangerDetected = true;
-            bestEscapeAngle = Math.atan2(0 - head.y, 0 - head.x); // 直接指向地圖中心
+            bestEscapeAngle = Math.atan2(0 - head.y, 0 - head.x); 
             s.isBoosting = true; 
         }
 
@@ -398,8 +397,15 @@ function loop() {
 
             if (immediateDanger || leftDanger > 0 || rightDanger > 0) {
                 dangerDetected = true;
-                if (leftDanger > rightDanger) bestEscapeAngle = s.angle + Math.PI / 2 + (Math.random() * 0.3); 
-                else bestEscapeAngle = s.angle - Math.PI / 2 - (Math.random() * 0.3); 
+                
+                // 💡 修改處：平滑避險，防止過度劇烈的 90 度甩尾導致的無限原地畫圈
+                let turnAmount = immediateDanger ? 0.6 : 0.25; 
+                if (leftDanger > rightDanger) {
+                    bestEscapeAngle = s.angle + turnAmount; 
+                } else {
+                    bestEscapeAngle = s.angle - turnAmount; 
+                }
+                
                 if (immediateDanger) s.isBoosting = true; 
             }
         }
