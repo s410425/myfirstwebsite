@@ -296,7 +296,7 @@ function loop() {
 
     camera.x += (player.body[0].x - camera.x) * 0.15;
     camera.y += (player.body[0].y - camera.y) * 0.15;
-    let targetZoom = Math.max(0.2, 0.8 - (player.getWidth() / 60));
+    let targetZoom = Math.max(0.6, 2.5 - (player.getWidth() / 30));
     camera.zoom += (targetZoom - camera.zoom) * 0.05;
 
     ctx.save();
