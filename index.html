@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake.io Arena - 終極修復版 (防打結與卡牆)</title>
+    <title>Snake.io Arena - 離線練習區</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; user-select: none; }
         canvas { display: block; }
@@ -42,19 +42,19 @@
 
 <div id="menu">
     <h1 style="color:#0f4">SNAKE.IO <span style="color:white">ARENA</span></h1>
-    <p style="color:#888; margin: 0 0 20px 0;">極限修復版 · 解決死結與邊界卡牆</p>
+    <p style="color:#888; margin: 0 0 20px 0;">離線練習區</p>
 
     <div class="input-box">
         <input type="text" id="player-name-input" placeholder="GUEST" maxlength="12">
     </div>
 
     <div class="btn-group">
-        <button class="preset-btn" onclick="applyPreset(3000, 400, 20, 150, 3.2, 600)">🟢 戰術模擬練習</button>
-        <button class="preset-btn" onclick="applyPreset(3500, 600, 30, 250, 4.2, 1000)">⚡ 狂暴搶點對決</button>
-        <button class="preset-btn" onclick="applyPreset(4000, 900, 45, 400, 5.0, 1500)">🔴 智商壓制地獄</button>
+        <button class="preset-btn" onclick="applyPreset(3000, 400, 20, 150, 3.2, 600)">🟢 很簡單啊</button>
+        <button class="preset-btn" onclick="applyPreset(3500, 600, 30, 250, 4.2, 1000)">⚡中等</button>
+        <button class="preset-btn" onclick="applyPreset(4000, 900, 45, 400, 5.0, 1500)">🔴 困難</button>
     </div>
 
-    <div class="config-title">⚙️ 核心戰場參數控制台</div>
+    <div class="config-title">⚙️控制台</div>
     <div class="config-panel">
         <div class="config-group"><label>地圖邊界 (MAP) <span id="val-map">3000</span></label><input type="range" id="cfg-map" min="1000" max="8000" step="500" value="3000" oninput="syncVal('map')"></div>
         <div class="config-group"><label>食物總數 (FOOD) <span id="val-food">400</span></label><input type="range" id="cfg-food" min="50" max="1500" step="50" value="400" oninput="syncVal('food')"></div>
@@ -66,7 +66,7 @@
     <button id="start-btn" onclick="startGame()">進入特訓</button>
 </div>
 
-<div id="permanent-rank"><div id="rank-title" style="font-weight:bold; color:#ff0; margin-bottom:10px;">🏆 歷史最佳</div><div id="p-list"></div></div>
+<div id="permanent-rank"><div id="rank-title" style="font-weight:bold; color:#ff0; margin-bottom:10px;">🏆 遊玩歷史最佳</div><div id="p-list"></div></div>
 <div id="ui-layer"></div>
 <div id="score-ui"><div id="best-ui">BEST: 0</div><div id="cur-ui">SCORE: 0</div></div>
 
