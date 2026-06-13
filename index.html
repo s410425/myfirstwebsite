@@ -292,7 +292,7 @@ function loop() {
     camera.y += (player.body[0].y - camera.y) * 0.15;
     
     // 💡 【修正 4】視野縮小至原本的 1/3 (鏡頭放大 3 倍，特寫更有張力)
-    let targetZoom = Math.max(1.8, 6.5 - (player.getWidth() / 12));
+   let targetZoom = Math.max(0.5, 1.2 - (player.getWidth() / 150));
     camera.zoom += (targetZoom - camera.zoom) * 0.05;
 
     ctx.save();
