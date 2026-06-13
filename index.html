@@ -296,7 +296,7 @@ function loop() {
 
     camera.x += (player.body[0].x - camera.x) * 0.15;
     camera.y += (player.body[0].y - camera.y) * 0.15;
-    let targetZoom = Math.max(0.35, 1.35 - (player.getWidth() / 40));
+    let targetZoom = Math.max(0.2, 0.8 - (player.getWidth() / 60));
     camera.zoom += (targetZoom - camera.zoom) * 0.05;
 
     ctx.save();
@@ -320,9 +320,26 @@ function loop() {
     player.isBoosting = mouse.down;
     player.update();
 
-    if (Math.abs(player.body[0].x) > currentMapSize || Math.abs(player.body[0].y) > currentMapSize) player.dead = true;
+    
 
     let allSnakes = [player, ...ai_bots];
+
+allSnakes.forEach(s => {
+        if (s.dead) return;
+        let radius = s.getWidth() / 2; // 取得蛇身半徑，讓判定更精準碰到邊線
+        
+        // 檢查這條蛇的每一個身體節點
+        for (let i = 0; i < s.body.length; i++) {
+            let seg = s.body[i];
+            // 只要有任何一個節點的座標 + 半徑超過了地圖邊界
+            if (Math.abs(seg.x) + radius > currentMapSize || Math.abs(seg.y) + radius > currentMapSize) {
+                s.dead = true;
+                break; // 確定死了就跳出迴圈，不用繼續檢查剩下的身體
+            }
+        }
+    });
+
+    
     let magnetRange = RUNTIME_CONFIG.magnetLimit;
 
     for (let i = foods.length - 1; i >= 0; i--) {
