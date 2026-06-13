@@ -418,37 +418,66 @@ allSnakes.forEach(s => {
             }
         }
 
-        if (dangerDetected) {
+
+
+
+
+if (dangerDetected) {
             s.targetAngle = bestEscapeAngle;
         } else {
             let targetSnake = null;
-            let minTargetDist = 800; 
+            let minTargetDist = 1200; // 🎯 強化 1：視野極大化！AI 會從更遠的地方盯上別人
 
+            // 找尋獵物：現在 AI 膽子變大了，不只打小蛇，連體型跟自己差不多的都敢殺
             for (let other of allSnakes) {
                 if (other.dead || other === s) continue;
-                if (s.length > other.length * 0.8) {
+                if (s.length * 1.5 > other.length) { 
                     let dist = Math.sqrt((other.body[0].x - head.x)**2 + (other.body[0].y - head.y)**2);
                     if (dist < minTargetDist) { minTargetDist = dist; targetSnake = other; }
                 }
             }
 
-            if (targetSnake && minTargetDist < 400 && Math.random() > 0.15) {
-                let speedScale = targetSnake.isBoosting ? 120 : 70;
-                let leadX = targetSnake.body[0].x + Math.cos(targetSnake.angle) * speedScale;
-                let leadY = targetSnake.body[0].y + Math.sin(targetSnake.angle) * speedScale;
+            if (targetSnake && minTargetDist < 650) {
+                // 🧠 強化 2：極限預判走位 (Lead target)
+                // 不再呆呆追著頭跑，而是計算對方速度，直接往對方的「未來位置」衝
+                let timeToReach = minTargetDist / 10; 
+                let leadX = targetSnake.body[0].x + Math.cos(targetSnake.angle) * (60 + timeToReach);
+                let leadY = targetSnake.body[0].y + Math.sin(targetSnake.angle) * (60 + timeToReach);
+                
                 s.targetAngle = Math.atan2(leadY - head.y, leadX - head.x);
-                if (minTargetDist < 250) s.isBoosting = true; 
+
+                // 💀 強化 3：死亡封位殺招 (Cut-off maneuver)
+                if (minTargetDist < 280) {
+                    s.isBoosting = true; // 靠近就死命狂飆
+                    
+                    // 判斷獵物行進方向，刻意往他面前「擠」過去，逼他撞自己身體
+                    let angleDiff = targetSnake.angle - s.angle;
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                    
+                    // 內切封路
+                    s.targetAngle += Math.sign(angleDiff) * 0.45; 
+                } else if (minTargetDist < 500 && Math.random() > 0.2) {
+                    s.isBoosting = true; // 中距離就會頻繁利用加速逼近
+                }
             } else if (foods.length > 0) {
+                // 🍎 強化 4：精準貪吃 (提高成長效率)
                 let bestFood = foods[0];
                 let maxScore = -9999;
-                for (let k = 0; k < 20; k++) {
+                // 掃描 40 顆食物，找出 C/P 值最高（最大且最近）的去吃
+                for (let k = 0; k < 40; k++) {
                     let tf = foods[Math.floor(Math.random() * foods.length)];
                     let dist = Math.sqrt((tf.x - head.x)**2 + (tf.y - head.y)**2);
-                    let score = (tf.size * 150) - dist; 
+                    let score = (tf.size * 300) - dist; 
                     if (score > maxScore) { maxScore = score; bestFood = tf; }
                 }
                 s.targetAngle = Math.atan2(bestFood.y - head.y, bestFood.x - head.x);
-                if (maxScore > 100 && Math.random() > 0.6) s.isBoosting = true; 
+                if (maxScore > 600) s.isBoosting = true; // 看到超大坨屍體直接加速去搶
+            }
+        }
+
+
+
             }
         }
         s.update();
