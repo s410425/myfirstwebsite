@@ -319,19 +319,22 @@ function loop() {
     let allSnakes = [player, ...ai_bots];
 
     // 全身邊界觸牆必死判定邏輯
-    allSnakes.forEach(s => {
-        if (s.dead) return;
-        let radius = s.getWidth() / 2; 
-        
-        for (let i = 0; i < s.body.length; i++) {
-            let seg = s.body[i];
-            if (Math.abs(seg.x) + radius > currentMapSize || Math.abs(seg.y) + radius > currentMapSize) {
-                s.dead = true;
-                break; 
-            }
+    // 全身邊界觸牆必死判定邏輯
+allSnakes.forEach(s => {
+    if (s.dead) return;
+    let radius = s.getWidth() / 2; 
+    
+    for (let i = 0; i < s.body.length; i++) {
+        let seg = s.body[i];
+        if (Math.abs(seg.x) + radius > currentMapSize || Math.abs(seg.y) + radius > currentMapSize) {
+            s.dead = true;
+            if (!s.isPlayer) toDie.push(s); // 👈 補上這一行！讓撞牆的 AI 也能正常被清理並重生
+            break; 
         }
-    });
+    }
+});
 
+    
     let magnetRange = RUNTIME_CONFIG.magnetLimit;
 
     for (let i = foods.length - 1; i >= 0; i--) {
