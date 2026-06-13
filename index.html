@@ -24,6 +24,7 @@
 
         .config-title { color: #0f4; font-size: 14px; font-weight: bold; letter-spacing: 1px; margin-bottom: 10px; }
         .config-panel { background: rgba(255,255,255,0.03); border: 1px solid #333; border-radius: 12px; padding: 15px; width: 85%; max-width: 520px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; box-sizing: border-box; }
+        .config-panel { background: rgba(255,255,255,0.03); border: 1px solid #333; border-radius: 12px; padding: 15px; width: 85%; max-width: 520px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; box-sizing: border-box; }
         .config-group { display: flex; flex-direction: column; align-items: flex-start; }
         .config-group label { color: #aaa; font-size: 12px; margin-bottom: 5px; width: 100%; display: flex; justify-content: space-between; }
         .config-group label span { color: #0af; }
@@ -136,19 +137,19 @@ class Snake {
         this.spawnTime = Date.now();
         this.name = isPlayer ? playerName : "AI_" + Math.floor(Math.random()*999);
 
+        // 💡 【修正 1】出生時所有身體節點重疊，隨游動逐漸拉長成形
         for (let i = 0; i < this.length; i += 3) {
-            this.body.push({ x: x - i * Math.cos(this.angle), y: y - i * Math.sin(this.angle) });
+            this.body.push({ x: x, y: y });
         }
     }
 
     getWidth() { return Math.min(50, 10 + Math.sqrt(this.length) * 0.4); }
     
-    // 【修復 2】如果 AI 靠近牆壁，給予極大轉向力避免卡死
     getTurnSpeed() { 
         if (!this.isPlayer && this.body.length > 0) {
             let maxBound = RUNTIME_CONFIG.map - 250;
             if (Math.abs(this.body[0].x) > maxBound || Math.abs(this.body[0].y) > maxBound) {
-                return 0.35; // 極速轉向逃離牆壁
+                return 0.35; 
             }
         }
         return Math.max(0.08, 0.25 - Math.min(0.12, this.length / 6000)); 
@@ -182,14 +183,7 @@ class Snake {
             y: this.body[0].y + Math.sin(this.angle) * currentSpeed
         };
 
-        if (!this.isPlayer) {
-            let maxBound = RUNTIME_CONFIG.map - 5;
-            if (head.x > maxBound) head.x = maxBound;
-            if (head.x < -maxBound) head.x = -maxBound;
-            if (head.y > maxBound) head.y = maxBound;
-            if (head.y < -maxBound) head.y = -maxBound;
-        }
-
+        // 💡 【修正 2】移除舊的 AI 邊界強制回推擋牆。現在 AI 如果越界，會真正觸發「全身任一處出界即死」判定
         this.body.unshift(head);
         let targetSegmentCount = Math.max(5, Math.floor(this.length / 3));
         while (this.body.length > targetSegmentCount) this.body.pop();
@@ -276,12 +270,12 @@ function spawnAI() {
 
     let ai = new Snake(spawnX, spawnY, `hsl(${Math.random() * 360}, 85%, 60%)`, false, targetLen);
     
-    // 【修復 3】強制生成時面朝中心，確保身體往外延伸，不再卡成直線
     ai.angle = Math.atan2(0 - spawnY, 0 - spawnX);
     ai.targetAngle = ai.angle;
     ai.body = [];
+    // 💡 【修正 3】AI 在遠端重生時，身體節點同樣重疊在同一個起點
     for (let i = 0; i < ai.length; i += 3) {
-        ai.body.push({ x: spawnX - i * Math.cos(ai.angle), y: spawnY - i * Math.sin(ai.angle) });
+        ai.body.push({ x: spawnX, y: spawnY });
     }
     
     ai_bots.push(ai);
@@ -296,7 +290,9 @@ function loop() {
 
     camera.x += (player.body[0].x - camera.x) * 0.15;
     camera.y += (player.body[0].y - camera.y) * 0.15;
-    let targetZoom = Math.max(0.6, 2.5 - (player.getWidth() / 30));
+    
+    // 💡 【修正 4】視野縮小至原本的 1/3 (鏡頭放大 3 倍，特寫更有張力)
+    let targetZoom = Math.max(1.8, 6.5 - (player.getWidth() / 12));
     camera.zoom += (targetZoom - camera.zoom) * 0.05;
 
     ctx.save();
@@ -320,26 +316,22 @@ function loop() {
     player.isBoosting = mouse.down;
     player.update();
 
-    
-
     let allSnakes = [player, ...ai_bots];
 
-allSnakes.forEach(s => {
+    // 全身邊界觸牆必死判定邏輯
+    allSnakes.forEach(s => {
         if (s.dead) return;
-        let radius = s.getWidth() / 2; // 取得蛇身半徑，讓判定更精準碰到邊線
+        let radius = s.getWidth() / 2; 
         
-        // 檢查這條蛇的每一個身體節點
         for (let i = 0; i < s.body.length; i++) {
             let seg = s.body[i];
-            // 只要有任何一個節點的座標 + 半徑超過了地圖邊界
             if (Math.abs(seg.x) + radius > currentMapSize || Math.abs(seg.y) + radius > currentMapSize) {
                 s.dead = true;
-                break; // 確定死了就跳出迴圈，不用繼續檢查剩下的身體
+                break; 
             }
         }
     });
 
-    
     let magnetRange = RUNTIME_CONFIG.magnetLimit;
 
     for (let i = foods.length - 1; i >= 0; i--) {
@@ -369,7 +361,6 @@ allSnakes.forEach(s => {
         }
     }
 
-    // 🌟 這裡就是修正後的 AI 避險與平滑轉向邏輯 🌟
     ai_bots.forEach(s => {
         if (s.dead) return;
         let head = s.body[0];
@@ -414,15 +405,12 @@ allSnakes.forEach(s => {
 
             if (immediateDanger || leftDanger > 0 || rightDanger > 0) {
                 dangerDetected = true;
-                
-                // 💡 修改處：平滑避險，防止過度劇烈的 90 度甩尾導致的無限原地畫圈
                 let turnAmount = immediateDanger ? 0.6 : 0.25; 
                 if (leftDanger > rightDanger) {
                     bestEscapeAngle = s.angle + turnAmount; 
                 } else {
                     bestEscapeAngle = s.angle - turnAmount; 
                 }
-                
                 if (immediateDanger) s.isBoosting = true; 
             }
         }
