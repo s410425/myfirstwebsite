@@ -137,7 +137,7 @@ class Snake {
         this.spawnTime = Date.now();
         this.name = isPlayer ? playerName : "AI_" + Math.floor(Math.random()*999);
 
-        // 💡 【修正 1】出生時所有身體節點重疊，隨游動逐漸拉長成形
+        // 出生時所有身體節點重疊，隨游動逐漸拉長成形
         for (let i = 0; i < this.length; i += 3) {
             this.body.push({ x: x, y: y });
         }
@@ -183,7 +183,7 @@ class Snake {
             y: this.body[0].y + Math.sin(this.angle) * currentSpeed
         };
 
-        // 💡 【修正 2】移除舊的 AI 邊界強制回推擋牆。現在 AI 如果越界，會真正觸發「全身任一處出界即死」判定
+        // 移除舊的 AI 邊界強制回推擋牆。現在 AI 如果越界，會真正觸發「全身任一處出界即死」判定
         this.body.unshift(head);
         let targetSegmentCount = Math.max(5, Math.floor(this.length / 3));
         while (this.body.length > targetSegmentCount) this.body.pop();
@@ -273,7 +273,7 @@ function spawnAI() {
     ai.angle = Math.atan2(0 - spawnY, 0 - spawnX);
     ai.targetAngle = ai.angle;
     ai.body = [];
-    // 💡 【修正 3】AI 在遠端重生時，身體節點同樣重疊在同一個起點
+    // AI 在遠端重生時，身體節點同樣重疊在同一個起點
     for (let i = 0; i < ai.length; i += 3) {
         ai.body.push({ x: spawnX, y: spawnY });
     }
@@ -291,7 +291,7 @@ function loop() {
     camera.x += (player.body[0].x - camera.x) * 0.15;
     camera.y += (player.body[0].y - camera.y) * 0.15;
     
-    // 💡 【修正 4】視野縮小至原本的 1/3 (鏡頭放大 3 倍，特寫更有張力)
+    // 視野縮小至原本的 1/3 (鏡頭放大 3 倍，特寫更有張力)
    let targetZoom = Math.max(0.5, 1.2 - (player.getWidth() / 150));
     camera.zoom += (targetZoom - camera.zoom) * 0.05;
 
@@ -328,7 +328,7 @@ allSnakes.forEach(s => {
         let seg = s.body[i];
         if (Math.abs(seg.x) + radius > currentMapSize || Math.abs(seg.y) + radius > currentMapSize) {
             s.dead = true;
-            if (!s.isPlayer) toDie.push(s); // 👈 補上這一行！讓撞牆的 AI 也能正常被清理並重生
+            if (!s.isPlayer) toDie.push(s); /撞牆的 AI 也能正常被清理並重生
             break; 
         }
     }
@@ -422,7 +422,7 @@ allSnakes.forEach(s => {
             s.targetAngle = bestEscapeAngle;
         } else {
             let targetSnake = null;
-            let minTargetDist = 1200; // 🎯 強化 1：視野極大化
+            let minTargetDist = 1200; //  視野極大化
 
             for (let other of allSnakes) {
                 if (other.dead || other === s) continue;
@@ -433,14 +433,14 @@ allSnakes.forEach(s => {
             }
 
             if (targetSnake && minTargetDist < 650) {
-                // 🧠 強化 2：極限預判走位
+                // 預判走位
                 let timeToReach = minTargetDist / 10; 
                 let leadX = targetSnake.body[0].x + Math.cos(targetSnake.angle) * (60 + timeToReach);
                 let leadY = targetSnake.body[0].y + Math.sin(targetSnake.angle) * (60 + timeToReach);
                 
                 s.targetAngle = Math.atan2(leadY - head.y, leadX - head.x);
 
-                // 💀 強化 3：死亡封位殺招
+                // 死亡封位殺招
                 if (minTargetDist < 280) {
                     s.isBoosting = true; 
                     
@@ -453,7 +453,7 @@ allSnakes.forEach(s => {
                     s.isBoosting = true; 
                 }
             } else if (foods.length > 0) {
-                // 🍎 強化 4：精準貪吃
+                // 精準貪吃
                 let bestFood = foods[0];
                 let maxScore = -9999;
                 for (let k = 0; k < 40; k++) {
