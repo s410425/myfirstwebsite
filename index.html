@@ -350,7 +350,7 @@ allSnakes.forEach(s => {
         let seg = s.body[i];
         if (Math.abs(seg.x) + radius > currentMapSize || Math.abs(seg.y) + radius > currentMapSize) {
             s.dead = true;
-            if (!s.isPlayer) toDie.push(s); /撞牆的 AI 也能正常被清理並重生
+            if (!s.isPlayer) toDie.push(s); //撞牆的 AI 也能正常被清理並重生
             break; 
         }
     }
